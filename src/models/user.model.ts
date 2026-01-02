@@ -1,0 +1,56 @@
+import mongoose, { Schema, Document, Model } from "mongoose";
+import bcrypt from "bcrypt";
+
+export interface IUser {
+  fullName: string;
+  phoneNumber: string;
+  team?: string | null;
+  department?: string | null;
+  yearOfStudy?: number | null;
+  telegramUserName?: string | null;
+  password: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface IUserDocument extends IUser, Document {
+  comparePassword(candidate: string): Promise<boolean>;
+}
+
+const UserSchema = new Schema<IUserDocument>(
+  {
+    fullName: { type: String, required: true, trim: true },
+    phoneNumber: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      index: true,
+    },
+    team: { type: String, default: null },
+    department: { type: String, default: null },
+    yearOfStudy: { type: Number, default: null },
+    telegramUserName: { type: String, default: null },
+    password: { type: String, required: true, minlength: 6 },
+  },
+  { timestamps: true }
+);
+
+UserSchema.pre<IUserDocument>("save", async function (next) {
+  if (!this.isModified("password")) return next();
+  try {
+    const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || "12", 10);
+    const hash = await bcrypt.hash(this.password, saltRounds);
+    this.password = hash;
+    return next();
+  } catch (err) {
+    return next(err as any);
+  }
+});
+
+UserSchema.methods.comparePassword = function (candidate: string) {
+  return bcrypt.compare(candidate, this.password);
+};
+
+export const UserModel: Model<IUserDocument> =
+  mongoose.models.User || mongoose.model<IUserDocument>("User", UserSchema);
