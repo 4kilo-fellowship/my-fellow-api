@@ -37,14 +37,16 @@ const UserSchema = new Schema<IUserDocument>(
 );
 
 UserSchema.pre<IUserDocument>("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password")) return (next as (err?: Error) => void)();
   try {
     const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || "12", 10);
     const hash = await bcrypt.hash(this.password, saltRounds);
     this.password = hash;
-    return next();
+    return (next as (err?: Error) => void)();
   } catch (err) {
-    return next(err as any);
+    return (
+      next as (err?: Error) => void
+    )(err instanceof Error ? err : new Error(String(err)));
   }
 });
 
