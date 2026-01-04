@@ -1,11 +1,25 @@
-import express, { Application, Request, Response } from "express";
+import express from "express";
+import mongoose from "mongoose";
+import authRoutes from "./routes/auth.routes.js";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
+import cors from "cors";
 
-const app: Application = express();
+const app = express();
 
+app.use(helmet());
+app.use(cors());
 app.use(express.json());
 
-app.get("/health", (req: Request, res: Response) => {
-  res.status(200).json({ status: "OK" });
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
+
+app.use("/api/auth", authLimiter, authRoutes);
+
+app.get("/health", (req, res) => res.json({ ok: true }));
 
 export default app;
