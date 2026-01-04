@@ -12,11 +12,26 @@ export class AuthController {
       if (err?.name === "ZodError") {
         return res.status(400).json({ success: false, errors: err.errors });
       }
+      return res.status(400).json({
+        success: false,
+        message: err.message || "Registration failed",
+      });
+    }
+  }
+  static async login(req: Request, res: Response) {
+    try {
+      const parsed = signInSchema.parse(req.body);
+      const { user, token } = await AuthService.login(parsed);
+      return res.status(200).json({ success: true, user, token });
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        return res.status(400).json({ success: false, errors: err.errors });
+      }
       return res
-        .status(400)
+        .status(401)
         .json({
           success: false,
-          message: err.message || "Registration failed",
+          message: err.message || "Authentication failed",
         });
     }
   }
