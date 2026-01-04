@@ -61,4 +61,8 @@ export class AuthService {
 
     return { user: safeUser, token };
   }
+
+  static async findById(id: string): Promise<IUserDocument | null> {
+    return UserModel.findById(id).select("-password");
+  }
 }
