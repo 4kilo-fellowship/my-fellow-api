@@ -1,3 +1,4 @@
+// type safety for signing-up
 export interface SignUpDTO {
   fullName: string;
   phoneNumber: string;
@@ -6,8 +7,9 @@ export interface SignUpDTO {
   yearOfStudy?: number | null;
   telegramUserName?: string | null;
   password: string;
-  confirmPassword?: string; // validation
+  confirmPassword?: string;
 }
+// type safety for signing-in
 
 export interface SignInDTO {
   phoneNumber: string;
