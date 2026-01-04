@@ -9,8 +9,8 @@ export interface SignUpDTO {
   password: string;
   confirmPassword?: string;
 }
-// type safety for signing-in
 
+// type safety for signing-in
 export interface SignInDTO {
   phoneNumber: string;
   password: string;
