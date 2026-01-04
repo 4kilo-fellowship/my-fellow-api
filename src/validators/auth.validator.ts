@@ -15,3 +15,7 @@ export const signUpSchema = z
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
+export const signInSchema = z.object({
+  phoneNumber: z.string().min(10).max(13),
+  password: z.string().min(6),
+});
