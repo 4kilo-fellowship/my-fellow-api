@@ -1,5 +1,4 @@
 import express from "express";
-import mongoose from "mongoose";
 import authRoutes from "./routes/auth.routes.js";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";

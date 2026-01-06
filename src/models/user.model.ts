@@ -36,18 +36,12 @@ const UserSchema = new Schema<IUserDocument>(
   { timestamps: true }
 );
 
-UserSchema.pre<IUserDocument>("save", async function (next) {
-  if (!this.isModified("password")) return (next as (err?: Error) => void)();
-  try {
-    const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || "12", 10);
-    const hash = await bcrypt.hash(this.password, saltRounds);
-    this.password = hash;
-    return (next as (err?: Error) => void)();
-  } catch (err) {
-    return (
-      next as (err?: Error) => void
-    )(err instanceof Error ? err : new Error(String(err)));
-  }
+UserSchema.pre<IUserDocument>("save", async function () {
+  if (!this.isModified("password")) return;
+
+  // 2. Hash the password
+  const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || "12", 10);
+  this.password = await bcrypt.hash(this.password, saltRounds);
 });
 
 UserSchema.methods.comparePassword = function (candidate: string) {

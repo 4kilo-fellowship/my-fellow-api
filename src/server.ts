@@ -2,7 +2,7 @@ import "dotenv/config";
 import app from "./app.js";
 import mongoose from "mongoose";
 
-const PORT = Number(process.env.PORT) || 4000;
+const PORT: number = Number(process.env.PORT) || 4000;
 const MONGO_URI = process.env.MONGO_URI;
 
 if (!MONGO_URI) {
