@@ -6,7 +6,7 @@ export interface IUser {
   phoneNumber: string;
   team?: string | null;
   department?: string | null;
-  yearOfStudy?: number | null;
+  yearOfStudy?: string | null;
   telegramUserName?: string | null;
   password: string;
   createdAt?: Date;
@@ -29,7 +29,7 @@ const UserSchema = new Schema<IUserDocument>(
     },
     team: { type: String, default: null },
     department: { type: String, default: null },
-    yearOfStudy: { type: Number, default: null },
+    yearOfStudy: { type: String, default: null },
     telegramUserName: { type: String, default: null },
     password: { type: String, required: true, minlength: 6 },
   },
