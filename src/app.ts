@@ -9,7 +9,16 @@ const app = express();
 
 app.use(helmet());
 app.use(cors());
-app.use(express.json());
+
+// Only parse JSON for non-multipart requests
+// Skip JSON parsing for multipart/form-data so multer can handle it
+app.use((req, res, next) => {
+  const contentType = req.headers['content-type'] || '';
+  if (contentType.includes('multipart/form-data')) {
+    return next();
+  }
+  express.json()(req, res, next);
+});
 
 const authLimiter = rateLimit({
   windowMs: 60 * 1000,

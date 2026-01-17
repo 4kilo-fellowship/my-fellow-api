@@ -1,5 +1,5 @@
 import multer from "multer";
-import { Request } from "express";
+import { Request, Response, NextFunction } from "express";
 
 // Configure multer to use memory storage (buffer)
 const storage = multer.memoryStorage();
@@ -27,7 +27,8 @@ export const upload = multer({
   },
 });
 
-// Middleware for single file upload
+// Middleware for single file upload (file field name must be "image")
+// The file is optional - if not provided, req.file will be undefined
 export const uploadSingle = upload.single("image");
 
 // Middleware for multiple file uploads
