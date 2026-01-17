@@ -14,8 +14,8 @@ app.use(cors());
 
 // parse json when no multipart/form-data
 app.use((req, res, next) => {
-  const contentType = req.headers['content-type'] || '';
-  if (contentType.includes('multipart/form-data')) {
+  const contentType = req.headers["content-type"] || "";
+  if (contentType.includes("multipart/form-data")) {
     return next();
   }
   express.json()(req, res, next);

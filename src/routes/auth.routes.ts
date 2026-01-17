@@ -6,7 +6,12 @@ import { handleMulterError } from "../middleware/multerError.middleware.js";
 
 const router = Router();
 
-router.post("/signup", uploadSingle, handleMulterError, AuthController.register);
+router.post(
+  "/signup",
+  uploadSingle,
+  handleMulterError,
+  AuthController.register
+);
 router.post("/signin", AuthController.login);
 router.get("/me", requireAuth, AuthController.getMe);
 
