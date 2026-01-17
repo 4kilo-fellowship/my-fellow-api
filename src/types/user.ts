@@ -4,7 +4,7 @@ export interface SignUpDTO {
   phoneNumber: string;
   team?: string | null;
   department?: string | null;
-  yearOfStudy?: number | null;
+  yearOfStudy?: string | null;
   telegramUserName?: string | null;
   password: string;
   confirmPassword?: string;
