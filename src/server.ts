@@ -2,6 +2,7 @@ import "dotenv/config";
 import app from "./app.js";
 import mongoose from "mongoose";
 
+// import port and uri from .env
 const PORT: number = Number(process.env.PORT) || 4000;
 const MONGO_URI = process.env.MONGO_URI;
 
@@ -9,6 +10,7 @@ if (!MONGO_URI) {
   throw new Error("MONGO_URI is not defined in environment variables");
 }
 
+// Connect with the database
 mongoose
   .connect(MONGO_URI)
   .then(() => {

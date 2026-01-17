@@ -5,6 +5,7 @@ import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
 
+// create express server
 const app = express();
 
 // add a security layer for the app

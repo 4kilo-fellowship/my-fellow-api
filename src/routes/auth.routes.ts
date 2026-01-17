@@ -1,13 +1,13 @@
-import { Router } from "express";
+import { NextFunction, Request, Response, Router } from "express";
 import { AuthController } from "../controllers/auth.controller.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
 import { uploadSingle } from "../middleware/upload.middleware.js";
-import multer from "multer";
+import multer, { MulterError } from "multer";
 
 const router = Router();
 
-// Middleware to handle multer errors
-const handleMulterError = (err: any, req: any, res: any, next: any) => {
+// create a middleware to handle multer
+const handleMulterError = (err: Error | MulterError, req: Request, res: Response, next: NextFunction) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({ 
