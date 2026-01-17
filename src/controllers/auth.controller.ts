@@ -6,11 +6,8 @@ import { AuthRequest } from "../middleware/auth.middleware.js";
 export class AuthController {
   static async register(req: AuthRequest, res: Response) {
     try {
-      // Handle form-data: parse JSON strings from form fields if needed
-      let body = req.body;
+      const body = req.body;
       
-      // If body contains string values that should be JSON (e.g., from form-data)
-      // We need to parse optional fields that might be JSON strings
       if (typeof body.team === 'string' && (body.team === '' || body.team === 'null')) {
         body.team = null;
       }
