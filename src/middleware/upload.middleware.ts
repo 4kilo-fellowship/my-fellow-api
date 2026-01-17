@@ -1,16 +1,15 @@
 import multer from "multer";
-import { Request, Response, NextFunction } from "express";
+import { Request} from "express";
 
-// Configure multer to use memory storage (buffer)
+// configure multer to use memory storage or buffer
 const storage = multer.memoryStorage();
 
-// File filter to only allow images
+// file filter to only allow images
 const fileFilter = (
   req: Request,
   file: Express.Multer.File,
   cb: multer.FileFilterCallback
 ) => {
-  // Accept images only
   if (file.mimetype.startsWith("image/")) {
     cb(null, true);
   } else {
@@ -18,7 +17,7 @@ const fileFilter = (
   }
 };
 
-// Configure multer
+// multer setup
 export const upload = multer({
   storage,
   fileFilter,
@@ -27,9 +26,7 @@ export const upload = multer({
   },
 });
 
-// Middleware for single file upload (file field name must be "image")
-// The file is optional - if not provided, req.file will be undefined
+
 export const uploadSingle = upload.single("image");
 
-// Middleware for multiple file uploads
 export const uploadMultiple = upload.array("images", 10);
