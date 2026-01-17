@@ -6,7 +6,7 @@ export const signUpSchema = z
     phoneNumber: z.string().min(8).max(13),
     team: z.string().optional().nullable(),
     department: z.string().optional().nullable(),
-    yearOfStudy: z.number().int().positive().optional().nullable(),
+    yearOfStudy: z.string().optional().nullable(),
     telegramUserName: z.string().optional().nullable(),
     password: z.string().min(6),
     confirmPassword: z.string().min(6),
