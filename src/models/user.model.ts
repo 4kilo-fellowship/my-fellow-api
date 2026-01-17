@@ -8,6 +8,7 @@ export interface IUser {
   department?: string | null;
   yearOfStudy?: string | null;
   telegramUserName?: string | null;
+  profileImage?: string | null;
   password: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -31,6 +32,7 @@ const UserSchema = new Schema<IUserDocument>(
     department: { type: String, default: null },
     yearOfStudy: { type: String, default: null },
     telegramUserName: { type: String, default: null },
+    profileImage: { type: String, default: null },
     password: { type: String, required: true, minlength: 6 },
   },
   { timestamps: true }

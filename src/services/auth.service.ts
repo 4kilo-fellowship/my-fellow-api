@@ -1,12 +1,33 @@
 import { UserModel, IUserDocument } from "../models/user.model.js";
 import { SignUpDTO, SignInDTO } from "../types/user.js";
 import { signJwt } from "../utils/jwt.js";
+import { uploadImageToCloudinary } from "./cloudinary.service.js";
 
 export class AuthService {
-  static async register(dto: SignUpDTO) {
+  static async register(dto: SignUpDTO, file?: Express.Multer.File) {
     const existing = await UserModel.findOne({ phoneNumber: dto.phoneNumber });
     if (existing) {
       throw new Error("Phone number already registered.");
+    }
+
+    let profileImageUrl: string | null = null;
+
+    // Upload image to Cloudinary if provided
+    if (file && file.buffer) {
+      try {
+        const uploadResult = await uploadImageToCloudinary(file.buffer, {
+          folder: "profile-images",
+          transformation: {
+            width: 500,
+            height: 500,
+            crop: "fill",
+            quality: "auto",
+          },
+        });
+        profileImageUrl = uploadResult.secure_url;
+      } catch (error: any) {
+        throw new Error(`Failed to upload image: ${error.message || "Image upload error"}`);
+      }
     }
 
     const user = new UserModel({
@@ -16,6 +37,7 @@ export class AuthService {
       department: dto.department ?? null,
       yearOfStudy: dto.yearOfStudy ?? null,
       telegramUserName: dto.telegramUserName ?? null,
+      profileImage: profileImageUrl,
       password: dto.password,
     });
 
@@ -30,6 +52,7 @@ export class AuthService {
       department: user.department,
       yearOfStudy: user.yearOfStudy,
       telegramUserName: user.telegramUserName,
+      profileImage: user.profileImage,
       createdAt: user.createdAt,
     };
 
@@ -56,6 +79,7 @@ export class AuthService {
       department: user.department,
       yearOfStudy: user.yearOfStudy,
       telegramUserName: user.telegramUserName,
+      profileImage: user.profileImage,
       createdAt: user.createdAt,
     };
 
