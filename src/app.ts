@@ -7,11 +7,11 @@ import cors from "cors";
 
 const app = express();
 
+// add a security layer for the app
 app.use(helmet());
 app.use(cors());
 
-// Only parse JSON for non-multipart requests
-// Skip JSON parsing for multipart/form-data so multer can handle it
+// parse json when no multipart/form-data
 app.use((req, res, next) => {
   const contentType = req.headers['content-type'] || '';
   if (contentType.includes('multipart/form-data')) {
@@ -20,6 +20,7 @@ app.use((req, res, next) => {
   express.json()(req, res, next);
 });
 
+// limit the number of auth requests
 const authLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
@@ -27,6 +28,7 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// limit the number of upload requests
 const uploadLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
