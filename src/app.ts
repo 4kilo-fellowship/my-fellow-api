@@ -1,6 +1,7 @@
 import express from "express";
 import authRoutes from "./routes/auth.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
+import eventsRoutes from "./routes/events.routes.js";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
@@ -37,8 +38,17 @@ const uploadLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Events rate limiter (separate limits to avoid abuse)
+const eventsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/upload", uploadLimiter, uploadRoutes);
+app.use("/api/events", eventsLimiter, eventsRoutes);
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 

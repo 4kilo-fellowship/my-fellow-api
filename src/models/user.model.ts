@@ -41,7 +41,7 @@ const UserSchema = new Schema<IUserDocument>(
 UserSchema.pre<IUserDocument>("save", async function () {
   if (!this.isModified("password")) return;
 
-  // 2. Hash the password
+  // hash the password
   const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || "12", 10);
   this.password = await bcrypt.hash(this.password, saltRounds);
 });

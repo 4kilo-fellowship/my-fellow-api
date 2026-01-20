@@ -10,14 +10,13 @@ if (!MONGO_URI) {
   throw new Error("MONGO_URI is not defined in environment variables");
 }
 
-// Connect with the database
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
 mongoose
   .connect(MONGO_URI)
   .then(() => {
     console.log("MongoDB connected");
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
   })
   .catch((err) => {
     console.error("Mongo connection error:", err);
