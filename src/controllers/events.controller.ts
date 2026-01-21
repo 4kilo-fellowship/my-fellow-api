@@ -7,13 +7,8 @@ import {
 import { uploadImageToCloudinary } from "../services/cloudinary.service.js";
 
 export class EventsController {
-  /**
-   * POST /api/events
-   * Accepts multipart/form-data with optional `image` file or `imageUrl` in body
-   */
   static async createEvent(req: Request, res: Response) {
     try {
-      // Validate body fields (they will be strings in multipart)
       const parseResult = createEventSchema.safeParse(req.body);
       if (!parseResult.success) {
         return res.status(400).json({
@@ -25,10 +20,8 @@ export class EventsController {
 
       const data = parseResult.data;
 
-      // Handle image: file or imageUrl
       let imageUrl: string | undefined = undefined;
       if (req.file) {
-        // upload buffer to Cloudinary (folder 'events')
         const result = await uploadImageToCloudinary(req.file.buffer, {
           folder: "events",
         });
@@ -56,17 +49,12 @@ export class EventsController {
 
       return res.status(201).json({ success: true, data: created });
     } catch (error: any) {
-      console.error("Create event error:", error);
       return res
         .status(500)
         .json({ success: false, message: error.message || "Server error" });
     }
   }
 
-  /**
-   * GET /api/events
-   * Optional query: sort=asc|desc to sort by startDate
-   */
   static async getAllEvents(req: Request, res: Response) {
     try {
       const sort = (req.query.sort as string) || "asc";
@@ -78,16 +66,12 @@ export class EventsController {
 
       return res.status(200).json({ success: true, data: events });
     } catch (error: any) {
-      console.error("Get events error:", error);
       return res
         .status(500)
         .json({ success: false, message: error.message || "Server error" });
     }
   }
 
-  /**
-   * GET /api/events/:id
-   */
   static async getEventById(req: Request, res: Response) {
     try {
       const { id } = req.params;
@@ -99,34 +83,26 @@ export class EventsController {
       }
       return res.status(200).json({ success: true, data: event });
     } catch (error: any) {
-      console.error("Get event by id error:", error);
       return res
         .status(500)
         .json({ success: false, message: error.message || "Server error" });
     }
   }
 
-  /**
-   * PUT /api/events/:id (optional)
-   * Accepts multipart/form-data with optional `image` file to replace imageUrl
-   */
   static async updateEvent(req: Request, res: Response) {
     try {
       const { id } = req.params;
       const parseResult = updateEventSchema.safeParse(req.body);
       if (!parseResult.success) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Validation failed",
-            errors: parseResult.error.format(),
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: parseResult.error.format(),
+        });
       }
 
       const data = parseResult.data as any;
 
-      // If file provided, upload and replace imageUrl
       if (req.file) {
         const result = await uploadImageToCloudinary(req.file.buffer, {
           folder: "events",
@@ -134,7 +110,6 @@ export class EventsController {
         data.imageUrl = result.secure_url;
       }
 
-      // Convert dates if present
       if (data.startDate) data.startDate = new Date(data.startDate);
       if (data.endDate) data.endDate = new Date(data.endDate);
 
@@ -156,9 +131,6 @@ export class EventsController {
     }
   }
 
-  /**
-   * DELETE /api/events/:id (optional)
-   */
   static async deleteEvent(req: Request, res: Response) {
     try {
       const { id } = req.params;
@@ -168,10 +140,6 @@ export class EventsController {
           .status(404)
           .json({ success: false, message: "Event not found" });
       }
-
-      // Optionally, you could delete from Cloudinary by extracting public id
-      // const publicId = extractPublicIdFromUrl(removed.imageUrl);
-      // if (publicId) await deleteImageFromCloudinary(publicId);
 
       return res.status(200).json({ success: true, message: "Event deleted" });
     } catch (error: any) {
