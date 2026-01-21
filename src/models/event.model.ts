@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema } from "mongoose";
+import mongoose, { Document, Model, Schema } from "mongoose";
 
 export interface IEvent extends Document {
   title: string;
@@ -21,9 +21,10 @@ const EventSchema = new Schema<IEvent>(
     buttonText: { type: String, trim: true },
     imageUrl: { type: String, required: true },
   },
-  { timestamps: { createdAt: true, updatedAt: false } },
+  { timestamps: true },
 );
 
-export const EventModel = mongoose.model<IEvent>("Event", EventSchema);
+export const EventModel: Model<IEvent> =
+  mongoose.models.Event || mongoose.model<IEvent>("Event", EventSchema);
 
 export default EventModel;
