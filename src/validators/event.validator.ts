@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// Base event schema for validation
 export const eventBaseSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   shortDescription: z
@@ -17,7 +16,6 @@ export const eventBaseSchema = z.object({
   imageUrl: z.string().url().optional(),
 });
 
-// For create: either imageUrl OR file upload (handled in controller). We validate date ordering here.
 export const createEventSchema = eventBaseSchema.superRefine((data, ctx) => {
   const start = new Date(data.startDate);
   const end = new Date(data.endDate);
@@ -30,7 +28,6 @@ export const createEventSchema = eventBaseSchema.superRefine((data, ctx) => {
   }
 });
 
-// For update: all fields optional, but if startDate & endDate provided ensure ordering
 export const updateEventSchema = z
   .object({
     title: z.string().min(3).optional(),

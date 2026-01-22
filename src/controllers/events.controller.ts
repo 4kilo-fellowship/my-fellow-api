@@ -124,7 +124,6 @@ export class EventsController {
 
       return res.status(200).json({ success: true, data: updated });
     } catch (error: any) {
-      console.error("Update event error:", error);
       return res
         .status(500)
         .json({ success: false, message: error.message || "Server error" });
@@ -143,7 +142,6 @@ export class EventsController {
 
       return res.status(200).json({ success: true, message: "Event deleted" });
     } catch (error: any) {
-      console.error("Delete event error:", error);
       return res
         .status(500)
         .json({ success: false, message: error.message || "Server error" });
