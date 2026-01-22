@@ -1,8 +1,3 @@
-/**
- * Cloudinary Upload Service
- * Handles image uploads to Cloudinary
- */
-
 import cloudinary from "cloudinary";
 import { Readable } from "stream";
 

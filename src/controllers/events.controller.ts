@@ -4,7 +4,9 @@ import {
   createEventSchema,
   updateEventSchema,
 } from "../validators/event.validator.js";
+import { createRegistrationSchema } from "../validators/registration.validator.js";
 import { uploadImageToCloudinary } from "../services/cloudinary.service.js";
+import RegistrationModel from "../models/registration.model.js";
 
 export class EventsController {
   static async createEvent(req: Request, res: Response) {
@@ -141,6 +143,77 @@ export class EventsController {
       }
 
       return res.status(200).json({ success: true, message: "Event deleted" });
+    } catch (error: any) {
+      return res
+        .status(500)
+        .json({ success: false, message: error.message || "Server error" });
+    }
+  }
+
+  static async registerForEvent(req: Request, res: Response) {
+    try {
+      const parseResult = createRegistrationSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: parseResult.error.format(),
+        });
+      }
+
+      const data = parseResult.data;
+
+      // Check if event exists
+      const event = await EventModel.findOne({ title: data.eventTitle });
+      if (!event) {
+        return res.status(404).json({
+          success: false,
+          message: `Event with title "${data.eventTitle}" not found`,
+        });
+      }
+
+      // Check if phone number already registered
+      const existingRegistration = await RegistrationModel.findOne({
+        phoneNumber: data.phoneNumber,
+      });
+
+      if (existingRegistration) {
+        return res.status(400).json({
+          success: false,
+          message: "A user with this phone number is already registered",
+        });
+      }
+
+      const registration = await RegistrationModel.create(data);
+
+      return res.status(201).json({
+        success: true,
+        message: "Successfully registered for the event",
+        data: registration,
+      });
+    } catch (error: any) {
+      return res
+        .status(500)
+        .json({ success: false, message: error.message || "Server error" });
+    }
+  }
+
+  static async getAllRegistrations(req: Request, res: Response) {
+    try {
+      const registrations = await RegistrationModel.find().lean();
+      return res.status(200).json({ success: true, data: registrations });
+    } catch (error: any) {
+      return res
+        .status(500)
+        .json({ success: false, message: error.message || "Server error" });
+    }
+  }
+
+  static async getRegistrationsByEvent(req: Request, res: Response) {
+    try {
+      const { eventTitle } = req.params;
+      const registrations = await RegistrationModel.find({ eventTitle }).lean();
+      return res.status(200).json({ success: true, data: registrations });
     } catch (error: any) {
       return res
         .status(500)
