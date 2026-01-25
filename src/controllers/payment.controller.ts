@@ -75,9 +75,28 @@ export class PaymentController {
       });
     } catch (err: any) {
       console.error("Payment Init Error:", err);
+
       if (err?.name === "ZodError") {
         return res.status(400).json({ success: false, errors: err.errors });
       }
+
+      // Check if it's a Chapa validation error (often stringified JSON)
+      if (
+        err.message &&
+        (err.message.includes("validation") || err.message.startsWith("{"))
+      ) {
+        try {
+          const chapaError = JSON.parse(err.message);
+          return res.status(400).json({
+            success: false,
+            message: "Data validation failed at Chapa",
+            errors: chapaError,
+          });
+        } catch (parseErr) {
+          // If not valid JSON, treat as regular message
+        }
+      }
+
       return res.status(500).json({
         success: false,
         message: err.message || "Payment initialization failed",
