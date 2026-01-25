@@ -42,6 +42,14 @@ class ChapaService {
       description?: string;
     };
   }): Promise<ChapaInitResponse> {
+    if (!this.secretKey || !this.secretKey.startsWith("CHASECK")) {
+      console.error(
+        "❌ CHAPA_SECRET_KEY is missing or invalid in .env! Current value prefix:",
+        this.secretKey?.substring(0, 12),
+      );
+      throw new Error("Chapa API Key is not configured correctly in .env");
+    }
+
     const response = await fetch(`${this.baseUrl}/transaction/initialize`, {
       method: "POST",
       headers: {
@@ -54,7 +62,12 @@ class ChapaService {
     const result = await response.json();
 
     if (!response.ok) {
-      throw new Error(result.message || "Chapa initialization failed");
+      console.error("Chapa API Error Response:", result);
+      const errorMessage =
+        typeof result.message === "object"
+          ? JSON.stringify(result.message)
+          : result.message;
+      throw new Error(errorMessage || "Chapa initialization failed");
     }
 
     return result as ChapaInitResponse;

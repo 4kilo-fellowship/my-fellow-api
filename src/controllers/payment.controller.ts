@@ -58,7 +58,7 @@ export class PaymentController {
         callback_url: process.env.CHAPA_CALLBACK_URL,
         return_url: process.env.CHAPA_RETURN_URL,
         customization: {
-          title: "Fellowship Payment",
+          title: "Fellowship Pay",
           description: reason || "Payment for Fellowship services",
         },
       };
@@ -74,12 +74,14 @@ export class PaymentController {
         },
       });
     } catch (err: any) {
+      console.error("Payment Init Error:", err);
       if (err?.name === "ZodError") {
         return res.status(400).json({ success: false, errors: err.errors });
       }
       return res.status(500).json({
         success: false,
         message: err.message || "Payment initialization failed",
+        error: process.env.NODE_ENV === "development" ? err : undefined,
       });
     }
   }
