@@ -2,6 +2,7 @@ import express from "express";
 import authRoutes from "./routes/auth.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import eventsRoutes from "./routes/events.routes.js";
+import paymentRoutes from "./routes/payment.routes.js";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
@@ -19,7 +20,11 @@ app.use((req, res, next) => {
   if (contentType.includes("multipart/form-data")) {
     return next();
   }
-  express.json()(req, res, next);
+  express.json({
+    verify: (req: any, res, buf) => {
+      req.rawBody = buf;
+    },
+  })(req, res, next);
 });
 
 // limit the number of auth requests
@@ -49,6 +54,7 @@ const eventsLimiter = rateLimit({
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/upload", uploadLimiter, uploadRoutes);
 app.use("/api/events", eventsLimiter, eventsRoutes);
+app.use("/api/payments", paymentRoutes);
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 

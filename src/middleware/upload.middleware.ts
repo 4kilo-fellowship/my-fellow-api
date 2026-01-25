@@ -1,5 +1,5 @@
-import multer from "multer";
-import { Request} from "express";
+import multer, { FileFilterCallback } from "multer";
+import { Request } from "express";
 
 // configure multer to use memory storage or buffer
 const storage = multer.memoryStorage();
@@ -8,7 +8,7 @@ const storage = multer.memoryStorage();
 const fileFilter = (
   req: Request,
   file: Express.Multer.File,
-  cb: multer.FileFilterCallback
+  cb: FileFilterCallback,
 ) => {
   if (file.mimetype.startsWith("image/")) {
     cb(null, true);
@@ -25,7 +25,6 @@ export const upload = multer({
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
 });
-
 
 export const uploadSingle = upload.single("image");
 

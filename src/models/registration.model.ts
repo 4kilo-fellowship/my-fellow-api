@@ -24,10 +24,6 @@ const RegistrationSchema = new Schema<IRegistration>(
   { timestamps: true },
 );
 
-// Optional: Ensure unique registration per event if required, 
-// but the prompt says phoneNumber is unique. 
-// If it's unique globally, the unique: true on phoneNumber is enough.
-
 export const RegistrationModel: Model<IRegistration> =
   mongoose.models.Registration ||
   mongoose.model<IRegistration>("Registration", RegistrationSchema);

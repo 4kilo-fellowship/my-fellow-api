@@ -12,7 +12,6 @@ export class AuthService {
 
     let profileImageUrl: string | null = null;
 
-    // Upload image to Cloudinary if provided
     if (file && file.buffer) {
       try {
         const uploadResult = await uploadImageToCloudinary(file.buffer, {
@@ -26,7 +25,9 @@ export class AuthService {
         });
         profileImageUrl = uploadResult.secure_url;
       } catch (error: any) {
-        throw new Error(`Failed to upload image: ${error.message || "Image upload error"}`);
+        throw new Error(
+          `Failed to upload image: ${error.message || "Image upload error"}`,
+        );
       }
     }
 
