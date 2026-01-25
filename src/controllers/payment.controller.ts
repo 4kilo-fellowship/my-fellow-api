@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import crypto from "crypto";
 import { chapaService } from "../services/chapa.service.js";
 import {
@@ -12,8 +12,17 @@ export class PaymentController {
   static async initialize(req: AuthRequest, res: Response) {
     try {
       const parsed = paymentInitSchema.parse(req.body);
-      const { amount, email, firstName, lastName, phoneNumber, reason } =
-        parsed;
+      const {
+        amount,
+        fullName,
+        phoneNumber,
+        email,
+        team,
+        department,
+        yearOfStudy,
+        telegramUserName,
+        reason,
+      } = parsed;
       const userId = req.user?.sub;
 
       const tx_ref = `fellow-tx-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
@@ -21,15 +30,23 @@ export class PaymentController {
       // Create pending transaction in DB
       const transaction = await TransactionModel.create({
         userId,
+        fullName,
+        phoneNumber,
+        team,
+        department,
+        yearOfStudy,
+        telegramUserName,
         tx_ref,
         amount,
-        email,
-        firstName,
-        lastName,
-        phoneNumber,
         reason,
         status: TransactionStatus.PENDING,
       });
+
+      // Split name for Chapa API
+      const nameParts = fullName.trim().split(" ");
+      const firstName = nameParts[0];
+      const lastName =
+        nameParts.length > 1 ? nameParts.slice(1).join(" ") : "Fellow";
 
       const chapaData = {
         amount,
@@ -38,8 +55,8 @@ export class PaymentController {
         first_name: firstName,
         last_name: lastName,
         tx_ref,
-        callback_url: process.env.CHAPA_CALLBACK_URL, // Webhook URL
-        return_url: process.env.CHAPA_RETURN_URL, // Frontend success page
+        callback_url: process.env.CHAPA_CALLBACK_URL,
+        return_url: process.env.CHAPA_RETURN_URL,
         customization: {
           title: "Fellowship Payment",
           description: reason || "Payment for Fellowship services",
@@ -67,7 +84,7 @@ export class PaymentController {
     }
   }
 
-  static async verify(req: Request, res: Response) {
+  static async verify(req: AuthRequest, res: Response) {
     try {
       const { tx_ref } = req.params;
 
@@ -79,7 +96,6 @@ export class PaymentController {
       }
 
       const response = await chapaService.verifyPayment(tx_ref);
-
       const transaction = await TransactionModel.findOne({ tx_ref });
 
       if (!transaction) {
@@ -93,7 +109,6 @@ export class PaymentController {
         // Validate amount matches
         if (Number(response.data.amount) !== transaction.amount) {
           transaction.status = TransactionStatus.FAILED;
-          transaction.meta = { ...response.data, error: "Amount mismatch" };
           await transaction.save();
           return res
             .status(400)
@@ -101,11 +116,9 @@ export class PaymentController {
         }
 
         transaction.status = TransactionStatus.SUCCESS;
-        transaction.meta = response.data;
         await transaction.save();
       } else if (response.data.status === "failed") {
         transaction.status = TransactionStatus.FAILED;
-        transaction.meta = response.data;
         await transaction.save();
       }
 
@@ -125,10 +138,10 @@ export class PaymentController {
     }
   }
 
-  static async webhook(req: Request, res: Response) {
+  static async webhook(req: any, res: Response) {
     try {
       const signature = req.headers["x-chapa-signature"] as string;
-      const body = (req as any).rawBody || JSON.stringify(req.body);
+      const body = req.rawBody || JSON.stringify(req.body);
 
       // Validate signature
       if (
@@ -141,7 +154,6 @@ export class PaymentController {
       }
 
       const { tx_ref, status, amount } = req.body;
-
       const transaction = await TransactionModel.findOne({ tx_ref });
 
       if (transaction) {
@@ -156,18 +168,11 @@ export class PaymentController {
             transaction.status = TransactionStatus.SUCCESS;
           } else {
             transaction.status = TransactionStatus.FAILED;
-            transaction.meta = { ...req.body, error: "Amount mismatch" };
           }
         } else if (status === "failed") {
           transaction.status = TransactionStatus.FAILED;
         }
 
-        if (
-          !transaction.meta ||
-          transaction.status !== TransactionStatus.SUCCESS
-        ) {
-          transaction.meta = req.body;
-        }
         await transaction.save();
       }
 

@@ -8,16 +8,16 @@ export enum TransactionStatus {
 
 export interface ITransaction {
   userId?: mongoose.Types.ObjectId;
+  fullName: string;
+  phoneNumber: string;
+  team?: string | null;
+  department?: string | null;
+  yearOfStudy?: string | null;
+  telegramUserName?: string | null;
   tx_ref: string;
   amount: number;
-  currency: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  phoneNumber?: string;
   reason: string;
   status: TransactionStatus;
-  meta?: any;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -27,20 +27,20 @@ export interface ITransactionDocument extends ITransaction, Document {}
 const TransactionSchema = new Schema<ITransactionDocument>(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User" },
+    fullName: { type: String, required: true },
+    phoneNumber: { type: String, required: true },
+    team: { type: String, default: null },
+    department: { type: String, default: null },
+    yearOfStudy: { type: String, default: null },
+    telegramUserName: { type: String, default: null },
     tx_ref: { type: String, required: true, unique: true },
     amount: { type: Number, required: true },
-    currency: { type: String, default: "ETB" },
-    email: { type: String, required: true },
-    firstName: { type: String, required: true },
-    lastName: { type: String, required: true },
-    phoneNumber: { type: String },
     reason: { type: String, default: "gift" },
     status: {
       type: String,
       enum: Object.values(TransactionStatus),
       default: TransactionStatus.PENDING,
     },
-    meta: { type: Schema.Types.Mixed },
   },
   { timestamps: true },
 );

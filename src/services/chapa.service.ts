@@ -12,26 +12,11 @@ export interface ChapaVerifyResponse {
   status: string;
   message: string;
   data: {
-    first_name: string;
-    last_name: string;
-    email: string;
-    currency: string;
     amount: number;
-    charge: number;
-    mode: string;
-    method: string;
-    type: string;
+    currency: string;
     status: string;
     reference: string;
     tx_ref: string;
-    customization: {
-      title: string;
-      description: string;
-      logo: string;
-    };
-    meta: any;
-    created_at: string;
-    updated_at: string;
   };
 }
 
