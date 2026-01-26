@@ -1,5 +1,9 @@
 import crypto from "crypto";
-import { ChapaInitResponse, ChapaVerifyResponse } from "../types/types.js";
+import {
+  ChapaInitPayload,
+  ChapaInitResponse,
+  ChapaVerifyResponse,
+} from "../types/types.js";
 import { CHAPA_BASE_URL } from "../config/chapa.js";
 
 class ChapaService {
@@ -10,25 +14,8 @@ class ChapaService {
     this.secretKey = process.env.CHAPA_SECRET_KEY || "";
   }
 
-  async initializePayment(data: {
-    amount: number;
-    currency: string;
-    email: string;
-    first_name: string;
-    last_name: string;
-    tx_ref: string;
-    callback_url?: string;
-    return_url?: string;
-    customization?: {
-      title?: string;
-      description?: string;
-    };
-  }): Promise<ChapaInitResponse> {
+  async initializePayment(data: ChapaInitPayload): Promise<ChapaInitResponse> {
     if (!this.secretKey || !this.secretKey.startsWith("CHASECK")) {
-      console.error(
-        "CHAPA_SECRET_KEY is missing or invalid in .env! Current value prefix:",
-        this.secretKey?.substring(0, 12),
-      );
       throw new Error("Chapa API Key is not configured correctly in .env");
     }
 
@@ -44,7 +31,6 @@ class ChapaService {
     const result = await response.json();
 
     if (!response.ok) {
-      console.error("Chapa API Error Response:", result);
       const errorMessage =
         typeof result.message === "object"
           ? JSON.stringify(result.message)
