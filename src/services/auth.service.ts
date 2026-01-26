@@ -1,5 +1,5 @@
 import { UserModel, IUserDocument } from "../models/user.model.js";
-import { SignUpDTO, SignInDTO } from "../types/user.js";
+import { SignUpDTO, SignInDTO } from "../types/types.js";
 import { signJwt } from "../utils/jwt.js";
 import { uploadImageToCloudinary } from "./cloudinary.service.js";
 

@@ -24,3 +24,16 @@ export interface ChapaInitResponse {
     checkout_url: string;
   };
 }
+
+// chapa verify response types safety
+export interface ChapaVerifyResponse {
+  status: string;
+  message: string;
+  data: {
+    amount: number;
+    currency: string;
+    status: string;
+    reference: string;
+    tx_ref: string;
+  };
+}
