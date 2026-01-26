@@ -1,12 +1,5 @@
 import crypto from "crypto";
-
-export interface ChapaInitResponse {
-  status: string;
-  message: string;
-  data: {
-    checkout_url: string;
-  };
-}
+import { ChapaInitResponse } from "../types/types.js";
 
 export interface ChapaVerifyResponse {
   status: string;

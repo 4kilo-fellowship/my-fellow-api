@@ -15,3 +15,12 @@ export interface SignInDTO {
   phoneNumber: string;
   password: string;
 }
+
+// chapa init types safety
+export interface ChapaInitResponse {
+  status: string;
+  message: string;
+  data: {
+    checkout_url: string;
+  };
+}
