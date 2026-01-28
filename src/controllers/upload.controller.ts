@@ -58,12 +58,20 @@ export class UploadController {
         });
       }
 
-      // Ensure files is an array of Multer files
-      const files = Array.isArray(req.files)
-        ? (req.files as Express.Multer.File[])
-        : [req.files as Express.Multer.File[]];
-
       const folder = (req.body.folder as string) || "profile-images";
+
+      // Normalize req.files to an array of Multer files
+      let files: Express.Multer.File[] = [];
+
+      if (Array.isArray(req.files)) {
+        // upload.array()
+        files = req.files as Express.Multer.File[];
+      } else {
+        // upload.fields()
+        for (const key in req.files) {
+          files.push(...(req.files[key] as Express.Multer.File[]));
+        }
+      }
 
       const uploadPromises = files.map((file) =>
         uploadImageToCloudinary(Buffer.from(file.buffer), { folder }),
