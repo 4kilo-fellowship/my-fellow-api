@@ -20,9 +20,10 @@ export class UploadController {
 
       const folder = (req.body.folder as string) || "profile-images";
 
-      const result = await uploadImageToCloudinary(req.file.buffer, {
-        folder,
-      });
+      // Type-safe: cast req.file to Express.Multer.File
+      const fileBuffer = Buffer.from((req.file as Express.Multer.File).buffer);
+
+      const result = await uploadImageToCloudinary(fileBuffer, { folder });
 
       res.status(200).json({
         success: true,
@@ -57,11 +58,15 @@ export class UploadController {
         });
       }
 
-      const files = Array.isArray(req.files) ? req.files : [req.files];
+      // Ensure files is an array of Multer files
+      const files = Array.isArray(req.files)
+        ? (req.files as Express.Multer.File[])
+        : [req.files as Express.Multer.File[]];
+
       const folder = (req.body.folder as string) || "profile-images";
 
       const uploadPromises = files.map((file) =>
-        uploadImageToCloudinary(file.buffer, { folder })
+        uploadImageToCloudinary(Buffer.from(file.buffer), { folder }),
       );
 
       const results = await Promise.all(uploadPromises);
