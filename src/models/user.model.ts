@@ -10,6 +10,7 @@ export interface IUser {
   telegramUserName?: string | null;
   profileImage?: string | null;
   password: string;
+  role: "admin" | "user";
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -34,8 +35,9 @@ const UserSchema = new Schema<IUserDocument>(
     telegramUserName: { type: String, default: null },
     profileImage: { type: String, default: null },
     password: { type: String, required: true, minlength: 6 },
+    role: { type: String, enum: ["admin", "user"], default: "user" },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 UserSchema.pre<IUserDocument>("save", async function () {

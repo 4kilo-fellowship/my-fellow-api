@@ -7,23 +7,35 @@ export class AuthController {
   static async register(req: AuthRequest, res: Response) {
     try {
       const body = req.body;
-      
-      if (typeof body.team === 'string' && (body.team === '' || body.team === 'null')) {
+
+      if (
+        typeof body.team === "string" &&
+        (body.team === "" || body.team === "null")
+      ) {
         body.team = null;
       }
-      if (typeof body.department === 'string' && (body.department === '' || body.department === 'null')) {
+      if (
+        typeof body.department === "string" &&
+        (body.department === "" || body.department === "null")
+      ) {
         body.department = null;
       }
-      if (typeof body.yearOfStudy === 'string' && (body.yearOfStudy === '' || body.yearOfStudy === 'null')) {
+      if (
+        typeof body.yearOfStudy === "string" &&
+        (body.yearOfStudy === "" || body.yearOfStudy === "null")
+      ) {
         body.yearOfStudy = null;
       }
-      if (typeof body.telegramUserName === 'string' && (body.telegramUserName === '' || body.telegramUserName === 'null')) {
+      if (
+        typeof body.telegramUserName === "string" &&
+        (body.telegramUserName === "" || body.telegramUserName === "null")
+      ) {
         body.telegramUserName = null;
       }
 
       const parsed = signUpSchema.parse(body);
       const file = req.file;
-      
+
       const { user, token } = await AuthService.register(parsed, file);
       return res.status(201).json({ success: true, user, token });
     } catch (err: any) {
@@ -45,28 +57,31 @@ export class AuthController {
       if (err?.name === "ZodError") {
         return res.status(400).json({ success: false, errors: err.errors });
       }
-      return res
-        .status(401)
-        .json({
-          success: false,
-          message: err.message || "Authentication failed",
-        });
+      return res.status(401).json({
+        success: false,
+        message: err.message || "Authentication failed",
+      });
     }
   }
   static async getMe(req: AuthRequest, res: Response) {
     try {
       const userId = req.user?.sub;
       if (!userId) {
-        return res.status(401).json({ success: false, message: "Unauthorized" });
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
       }
       const user = await AuthService.findById(userId);
       if (!user) {
-        return res.status(404).json({ success: false, message: "User not found" });
+        return res
+          .status(404)
+          .json({ success: false, message: "User not found" });
       }
       const safeUser = {
         id: user._id,
         fullName: user.fullName,
         phoneNumber: user.phoneNumber,
+        role: user.role,
         team: user.team,
         department: user.department,
         yearOfStudy: user.yearOfStudy,

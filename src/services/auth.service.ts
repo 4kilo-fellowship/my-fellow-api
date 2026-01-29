@@ -40,15 +40,22 @@ export class AuthService {
       telegramUserName: dto.telegramUserName ?? null,
       profileImage: profileImageUrl,
       password: dto.password,
+      role:
+        dto.phoneNumber === process.env.ADMIN_PHONE_NUMBER ? "admin" : "user",
     });
 
     await user.save();
-    const token = signJwt({ sub: user._id, phoneNumber: user.phoneNumber });
+    const token = signJwt({
+      sub: user._id,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+    });
 
     const safeUser = {
       id: user._id,
       fullName: user.fullName,
       phoneNumber: user.phoneNumber,
+      role: user.role,
       team: user.team,
       department: user.department,
       yearOfStudy: user.yearOfStudy,
@@ -70,12 +77,17 @@ export class AuthService {
     if (!valid) {
       throw new Error("Invalid credentials");
     }
-    const token = signJwt({ sub: user._id, phoneNumber: user.phoneNumber });
+    const token = signJwt({
+      sub: user._id,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+    });
 
     const safeUser = {
       id: user._id,
       fullName: user.fullName,
       phoneNumber: user.phoneNumber,
+      role: user.role,
       team: user.team,
       department: user.department,
       yearOfStudy: user.yearOfStudy,
