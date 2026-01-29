@@ -8,7 +8,7 @@ export interface AuthRequest extends Request {
 export const requireAuth = (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const header = req.headers.authorization;
