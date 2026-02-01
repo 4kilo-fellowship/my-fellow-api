@@ -31,11 +31,11 @@ class ChapaService {
     const result = await response.json();
 
     if (!response.ok) {
-      const errorMessage =
-        typeof result.message === "object"
-          ? JSON.stringify(result.message)
-          : result.message;
-      throw new Error(errorMessage || "Chapa initialization failed");
+      // const errorMessage =
+      //   typeof result.message === "object"
+      //     ? JSON.stringify(result.message)
+      //     : result.message;
+      throw new Error("Chapa initialization failed");
     }
 
     return result as ChapaInitResponse;
@@ -55,7 +55,7 @@ class ChapaService {
     const result = await response.json();
 
     if (!response.ok) {
-      throw new Error(result.message || "Chapa verification failed");
+      throw new Error("Chapa verification failed");
     }
 
     return result as ChapaVerifyResponse;

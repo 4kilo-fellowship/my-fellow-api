@@ -3,6 +3,7 @@ import authRoutes from "./routes/auth.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import eventsRoutes from "./routes/events.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
@@ -55,6 +56,7 @@ app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/upload", uploadLimiter, uploadRoutes);
 app.use("/api/events", eventsLimiter, eventsRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
