@@ -7,32 +7,6 @@ export class AuthController {
   static async register(req: AuthRequest, res: Response) {
     try {
       const body = req.body;
-
-      if (
-        typeof body.team === "string" &&
-        (body.team === "" || body.team === "null")
-      ) {
-        body.team = null;
-      }
-      if (
-        typeof body.department === "string" &&
-        (body.department === "" || body.department === "null")
-      ) {
-        body.department = null;
-      }
-      if (
-        typeof body.yearOfStudy === "string" &&
-        (body.yearOfStudy === "" || body.yearOfStudy === "null")
-      ) {
-        body.yearOfStudy = null;
-      }
-      if (
-        typeof body.telegramUserName === "string" &&
-        (body.telegramUserName === "" || body.telegramUserName === "null")
-      ) {
-        body.telegramUserName = null;
-      }
-
       const parsed = signUpSchema.parse(body);
       const file = req.file;
 
