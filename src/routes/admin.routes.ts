@@ -4,7 +4,6 @@ import { requireAuth, requireAdmin } from "../middleware/auth.middleware.js";
 
 const router = Router();
 
-// Apply auth and admin middleware to all routes in this file
 router.use(requireAuth);
 router.use(requireAdmin);
 

@@ -64,7 +64,7 @@ export class AdminController {
         ]);
 
       const [totalRevenueResult] = await TransactionModel.aggregate([
-        { $match: { status: "success" } },
+        { $match: { status: "pending" } },
         { $group: { _id: null, total: { $sum: "$amount" } } },
       ]);
 

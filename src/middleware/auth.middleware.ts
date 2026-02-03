@@ -23,7 +23,7 @@ export const requireAuth = (
     const payload = verifyJwt(token);
     req.user = payload;
     next();
-  } catch (err) {
+  } catch  {
     return res
       .status(401)
       .json({ success: false, message: "Invalid or expired token" });
@@ -35,7 +35,6 @@ export const requireAdmin = (
   res: Response,
   next: NextFunction,
 ) => {
-  // Check if user is authenticated and has the 'admin' role
   if (!req.user || req.user.role !== "admin") {
     return res.status(403).json({
       success: false,
