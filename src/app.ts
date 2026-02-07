@@ -1,9 +1,10 @@
-import express, {Request, Response, NextFunction} from "express";
+import express, { Request, Response, NextFunction } from "express";
 import authRoutes from "./routes/auth.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import eventsRoutes from "./routes/events.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import teamRoutes from "./routes/team.routes.js";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
@@ -46,11 +47,19 @@ const eventsLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const teamLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/upload", uploadLimiter, uploadRoutes);
 app.use("/api/events", eventsLimiter, eventsRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/teams", teamLimiter, teamRoutes);
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
