@@ -1,17 +1,44 @@
 import { Request, Response } from "express";
 import { TeamService } from "../services/team.service.js";
-import {
-  createTeamInputSchema,
-  updateTeamInputSchema,
-} from "../validators/team.validator.js";
+import { teamBaseSchema } from "../validators/team.validator.js";
 
 export class TeamController {
   static async createTeam(req: Request, res: Response) {
     try {
-      // Zod validation
-      // req.body might contain stringified versions of objects if multipart
-      // The validator's preprocess handles JSON.parse for coordinates/leader
-      const parseResult = createTeamInputSchema.safeParse(req.body);
+      const data = { ...req.body };
+
+      // Preprocess JSON string fields for multipart requests
+      if (typeof data.coordinates === "string") {
+        try {
+          data.coordinates = JSON.parse(data.coordinates);
+        } catch (e) {
+          // Leave it as string, validator will fail and report error
+        }
+      }
+
+      if (typeof data.leader === "string") {
+        try {
+          data.leader = JSON.parse(data.leader);
+        } catch (e) {
+          // Leave it as string, validator will fail
+        }
+      }
+
+      // If a file is uploaded but no imageUrl in body, we might set a placeholder or let service handle it.
+      // However, teamBaseSchema requires imageUrl to be a valid URL string.
+      // If we are uploading a file, we generate the URL in the service.
+      // But validation happens BEFORE service.
+      // We must inject a placeholder if a file is present to pass validation,
+      // OR we adjust the validation strategy.
+      // Since user said "use just what is there in validators", and validator requires imageUrl as URL.
+      // If user uploads file, frontend might send 'imageUrl' as empty string or not send it.
+      // If req.file is present, let's inject a placeholder string so Zod passes,
+      // then Service will replace it with actual Cloudinary URL.
+      if (req.file && (!data.imageUrl || data.imageUrl === "")) {
+        data.imageUrl = "https://placeholder.com/image.jpg";
+      }
+
+      const parseResult = teamBaseSchema.safeParse(data);
 
       if (!parseResult.success) {
         return res.status(400).json({
@@ -20,6 +47,11 @@ export class TeamController {
           errors: parseResult.error.format(),
         });
       }
+
+      // Pass the REAL data to service.
+      // If we injected a placeholder, we must ensure Service overwrites it from req.file.
+      // Service logic: "let imageUrl = data.imageUrl; if (file) ... imageUrl = uploadResult.secure_url"
+      // This works perfectly.
 
       const team = await TeamService.create(parseResult.data, req.file);
 
@@ -78,8 +110,28 @@ export class TeamController {
   static async updateTeam(req: Request, res: Response) {
     try {
       const { id } = req.params;
+      const data = { ...req.body };
 
-      const parseResult = updateTeamInputSchema.safeParse(req.body);
+      // Preprocess JSON string fields
+      if (typeof data.coordinates === "string") {
+        try {
+          data.coordinates = JSON.parse(data.coordinates);
+        } catch (e) {}
+      }
+
+      if (typeof data.leader === "string") {
+        try {
+          data.leader = JSON.parse(data.leader);
+        } catch (e) {}
+      }
+
+      // If file uploaded, allow imageUrl valid pass
+      if (req.file && (!data.imageUrl || data.imageUrl === "")) {
+        data.imageUrl = "https://placeholder.com/image.jpg";
+      }
+
+      // Use partial() for updates
+      const parseResult = teamBaseSchema.partial().safeParse(data);
 
       if (!parseResult.success) {
         return res.status(400).json({
@@ -89,9 +141,11 @@ export class TeamController {
         });
       }
 
+      // Cast to any to satisfy TS constraint if Service expects full type (we'll fix service next)
+      // or if Service accepts Partial<Team>.
       const updatedTeam = await TeamService.update(
         id,
-        parseResult.data,
+        parseResult.data as any,
         req.file,
       );
 

@@ -1,14 +1,12 @@
 import TeamModel, { ITeam } from "../models/team.model.js";
-import {
-  CreateTeamInput,
-  UpdateTeamInput,
-} from "../validators/team.validator.js";
+import { Team } from "../validators/team.validator.js";
 import { uploadImageToCloudinary } from "./cloudinary.service.js";
 
 export class TeamService {
-  static async create(data: CreateTeamInput, file?: Express.Multer.File) {
-    let imageUrl: string | undefined = data.imageUrl;
+  static async create(data: Team, file?: Express.Multer.File) {
+    let imageUrl: string = data.imageUrl; // data.imageUrl is required by Team type
 
+    // If file is provided, upload and overwrite the imageUrl
     if (file && file.buffer) {
       try {
         const uploadResult = await uploadImageToCloudinary(file.buffer, {
@@ -35,12 +33,10 @@ export class TeamService {
   }
 
   static async getAll(query: any = {}) {
-    // Basic filtering, could be expanded
     const filter: any = { isDeleted: false };
     if (query.category) {
       filter.category = query.category;
     }
-    // Search by name if needed
     if (query.search) {
       filter.name = { $regex: query.search, $options: "i" };
     }
@@ -56,7 +52,7 @@ export class TeamService {
 
   static async update(
     id: string,
-    data: UpdateTeamInput,
+    data: Partial<Team>,
     file?: Express.Multer.File,
   ) {
     const existingTeam = await TeamModel.findOne({ _id: id, isDeleted: false });
@@ -83,12 +79,6 @@ export class TeamService {
       }
     }
 
-    // Merge data, but careful with nested partial updates if any
-    // Mongoose handles top-level merge fine.
-    // For nested objects like `leader` or `coordinates`, if provided, they replace the whole object usually unless using dot notation.
-    // Here we replace the whole nested object if it's in `data`.
-
-    // Construct update object
     const updateData: any = { ...data };
     if (imageUrl) {
       updateData.imageUrl = imageUrl;

@@ -5,11 +5,9 @@ import { requireAuth, requireAdmin } from "../middleware/auth.middleware.js";
 
 const router = Router();
 
-// Public routes
 router.get("/", TeamController.getAllTeams);
 router.get("/:id", TeamController.getTeamById);
 
-// Protected routes (Admin only)
 router.post(
   "/",
   requireAuth,
