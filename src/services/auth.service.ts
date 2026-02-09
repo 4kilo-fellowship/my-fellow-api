@@ -39,6 +39,7 @@ export class AuthService {
       yearOfStudy: dto.yearOfStudy ?? null,
       telegramUserName: dto.telegramUserName ?? null,
       profileImage: profileImageUrl,
+      pastTeam: dto.pastTeam ?? null,
       password: dto.password,
       role:
         dto.phoneNumber === process.env.ADMIN_PHONE_NUMBER ? "admin" : "user",
@@ -61,6 +62,7 @@ export class AuthService {
       yearOfStudy: user.yearOfStudy,
       telegramUserName: user.telegramUserName,
       profileImage: user.profileImage,
+      pastTeam: user.pastTeam,
       createdAt: user.createdAt,
     };
 
@@ -93,6 +95,7 @@ export class AuthService {
       yearOfStudy: user.yearOfStudy,
       telegramUserName: user.telegramUserName,
       profileImage: user.profileImage,
+      pastTeam: user.pastTeam,
       createdAt: user.createdAt,
     };
 

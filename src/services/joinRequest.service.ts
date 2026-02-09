@@ -4,14 +4,38 @@ import TeamModel from "../models/team.model.js";
 import mongoose from "mongoose";
 
 export class JoinRequestService {
-  static async createRequest(userId: string, teamId: string, message?: string) {
+  static async createRequest(data: {
+    userId: string;
+    teamId: string;
+    fullName: string;
+    phoneNumber: string;
+    profileImage?: string;
+    pastTeam?: string;
+    department: string;
+    year: string;
+    telegramHandle: string;
+    message?: string;
+  }) {
+    const {
+      userId,
+      teamId,
+      fullName,
+      phoneNumber,
+      profileImage,
+      pastTeam,
+      department,
+      year,
+      telegramHandle,
+      message,
+    } = data;
+
     // Check if team exists
     const team = await TeamModel.findById(teamId);
     if (!team || team.isDeleted) {
       throw new Error("Team not found");
     }
 
-    // Check if user already in a team (optional, depending on requirements)
+    // Check if user exists
     const user = await UserModel.findById(userId);
     if (!user) {
       throw new Error("User not found");
@@ -31,6 +55,13 @@ export class JoinRequestService {
     const request = await JoinRequestModel.create({
       userId,
       teamId,
+      fullName,
+      phoneNumber,
+      profileImage,
+      pastTeam,
+      department,
+      year,
+      telegramHandle,
       message,
     });
 
@@ -55,10 +86,19 @@ export class JoinRequestService {
       }
 
       if (status === "approved") {
-        // Update user's team
+        // Update user's profile and team
         const user = await UserModel.findByIdAndUpdate(
           request.userId,
-          { team: request.teamId.toString() },
+          {
+            team: request.teamId.toString(),
+            fullName: request.fullName,
+            phoneNumber: request.phoneNumber,
+            department: request.department,
+            yearOfStudy: request.year,
+            telegramUserName: request.telegramHandle,
+            profileImage: request.profileImage,
+            pastTeam: request.pastTeam,
+          },
           { session },
         );
 

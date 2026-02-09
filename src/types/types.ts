@@ -6,6 +6,7 @@ export interface SignUpDTO {
   department?: string | null;
   yearOfStudy?: string | null;
   telegramUserName?: string | null;
+  pastTeam?: string | null;
   password: string;
   confirmPassword?: string;
 }

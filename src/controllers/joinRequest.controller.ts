@@ -12,12 +12,30 @@ export class JoinRequestController {
           .json({ success: false, message: "Unauthorized" });
       }
 
-      const { teamId, message } = req.body;
-      const request = await JoinRequestService.createRequest(
+      const {
+        teamId,
+        fullName,
+        phoneNumber,
+        profileImage,
+        pastTeam,
+        department,
+        year,
+        telegramHandle,
+        message,
+      } = req.body;
+
+      const request = await JoinRequestService.createRequest({
         userId,
         teamId,
+        fullName,
+        phoneNumber,
+        profileImage,
+        pastTeam,
+        department,
+        year,
+        telegramHandle,
         message,
-      );
+      });
 
       return res.status(201).json({
         success: true,

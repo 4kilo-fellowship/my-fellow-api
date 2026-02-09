@@ -61,6 +61,7 @@ export class AuthController {
         yearOfStudy: user.yearOfStudy,
         telegramUserName: user.telegramUserName,
         profileImage: user.profileImage,
+        pastTeam: user.pastTeam,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       };
