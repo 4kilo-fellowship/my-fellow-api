@@ -63,12 +63,8 @@ const TeamSchema = new Schema<ITeam>(
   { timestamps: true },
 );
 
-// Indexes
 TeamSchema.index({ name: 1 });
 TeamSchema.index({ category: 1 });
-
-// Static methods or query helpers could be added here
-// For now, we rely on the service to filter isDeleted: false
 
 export const TeamModel: Model<ITeam> =
   mongoose.models.Team || mongoose.model<ITeam>("Team", TeamSchema);

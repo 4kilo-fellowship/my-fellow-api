@@ -5,6 +5,7 @@ import eventsRoutes from "./routes/events.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import teamRoutes from "./routes/team.routes.js";
+import joinRequestRoutes from "./routes/joinRequest.routes.js";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
@@ -60,6 +61,7 @@ app.use("/api/events", eventsLimiter, eventsRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/teams", teamLimiter, teamRoutes);
+app.use("/api/join-requests", joinRequestRoutes);
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
