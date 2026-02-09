@@ -105,4 +105,60 @@ export class AuthService {
   static async findById(id: string): Promise<IUserDocument | null> {
     return UserModel.findById(id).select("-password");
   }
+
+  static async updateProfile(
+    userId: string,
+    updates: any,
+    file?: Express.Multer.File,
+  ) {
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    if (file && file.buffer) {
+      try {
+        const uploadResult = await uploadImageToCloudinary(file.buffer, {
+          folder: "profile-images",
+          transformation: {
+            width: 500,
+            height: 500,
+            crop: "fill",
+            quality: "auto",
+          },
+        });
+        updates.profileImage = uploadResult.secure_url;
+      } catch (error: any) {
+        throw new Error(
+          `Failed to upload image: ${error.message || "Image upload error"}`,
+        );
+      }
+    }
+
+    // Update only the fields that are provided
+    Object.keys(updates).forEach((key) => {
+      if (updates[key] !== undefined) {
+        (user as any)[key] = updates[key];
+      }
+    });
+
+    await user.save();
+
+    const safeUser = {
+      id: user._id,
+      fullName: user.fullName,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      team: user.team,
+      department: user.department,
+      yearOfStudy: user.yearOfStudy,
+      telegramUserName: user.telegramUserName,
+      profileImage: user.profileImage,
+      pastTeam: user.pastTeam,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    return safeUser;
+  }
 }

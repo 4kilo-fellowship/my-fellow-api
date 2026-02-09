@@ -1,6 +1,10 @@
 import { Response } from "express";
 import { AuthService } from "../services/auth.service.js";
-import { signUpSchema, signInSchema } from "../validators/auth.validator.js";
+import {
+  signUpSchema,
+  signInSchema,
+  updateProfileSchema,
+} from "../validators/auth.validator.js";
 import { AuthRequest } from "../middleware/auth.middleware.js";
 
 export class AuthController {
@@ -70,6 +74,35 @@ export class AuthController {
       return res.status(500).json({
         success: false,
         message: err.message || "Failed to fetch user data",
+      });
+    }
+  }
+
+  static async updateProfile(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user?.sub;
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
+      }
+
+      const parsed = updateProfileSchema.parse(req.body);
+      const file = req.file;
+
+      const user = await AuthService.updateProfile(userId, parsed, file);
+      return res.status(200).json({
+        success: true,
+        message: "Profile updated successfully",
+        user,
+      });
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        return res.status(400).json({ success: false, errors: err.errors });
+      }
+      return res.status(400).json({
+        success: false,
+        message: err.message || "Failed to update profile",
       });
     }
   }

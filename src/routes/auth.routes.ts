@@ -10,10 +10,16 @@ router.post(
   "/signup",
   uploadSingle,
   handleMulterError,
-  AuthController.register
+  AuthController.register,
 );
 router.post("/signin", AuthController.login);
 router.get("/me", requireAuth, AuthController.getMe);
+router.patch(
+  "/profile",
+  requireAuth,
+  uploadSingle,
+  handleMulterError,
+  AuthController.updateProfile,
+);
 
 export default router;
- 

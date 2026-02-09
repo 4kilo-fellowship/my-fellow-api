@@ -122,3 +122,39 @@ Approves or rejects a join request. When approved, the user's profile (name, pho
 | `status`       | `String`                | Enum: `["pending", "approved", "rejected"]` |
 | `phoneNumber`  | `String`                | Min 10, Max 15 characters.                  |
 | `profileImage` | `String (URL)`          | Must be a valid URL string.                 |
+
+---
+
+## 5. Update User Profile
+
+Allows a user to update their personal information provided during sign-up.
+
+- **URL:** `/api/auth/profile`
+- **Method:** `PATCH`
+- **Authentication:** Required (User/Admin)
+- **Content-Type:** `multipart/form-data` (to support profile image upload) or `application/json`
+
+### Request Body (Optional Fields)
+
+| Field              | Type     | Description                                        |
+| :----------------- | :------- | :------------------------------------------------- |
+| `fullName`         | `string` | Updated full name.                                 |
+| `phoneNumber`      | `string` | Updated phone number.                              |
+| `department`       | `string` | Updated department.                                |
+| `yearOfStudy`      | `string` | Updated year of study.                             |
+| `telegramUserName` | `string` | Updated Telegram handle.                           |
+| `pastTeam`         | `string` | Updated past team preference.                      |
+| `image`            | `file`   | New profile picture file (use field name `image`). |
+
+### Success Response
+
+- **Code:** 200 OK
+- **Body:**
+
+```json
+{
+  "success": true,
+  "message": "Profile updated successfully",
+  "user": { ... updated user object ... }
+}
+```
