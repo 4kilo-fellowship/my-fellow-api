@@ -6,6 +6,7 @@ import paymentRoutes from "./routes/payment.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import teamRoutes from "./routes/team.routes.js";
 import joinRequestRoutes from "./routes/joinRequest.routes.js";
+import programRoutes from "./routes/program.routes.js";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
@@ -55,6 +56,13 @@ const teamLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const programLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/upload", uploadLimiter, uploadRoutes);
 app.use("/api/events", eventsLimiter, eventsRoutes);
@@ -62,6 +70,7 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/teams", teamLimiter, teamRoutes);
 app.use("/api/join-requests", joinRequestRoutes);
+app.use("/api/programs", programLimiter, programRoutes);
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
