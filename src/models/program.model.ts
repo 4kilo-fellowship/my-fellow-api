@@ -12,8 +12,8 @@ export interface IProgram extends Document {
   time: string;
   category: string;
   location: string;
-  coordinates?: IProgramCoordinates;
-  image?: string;
+  coordinates: IProgramCoordinates;
+  image: string;
   isDeleted: boolean;
   deletedAt?: Date;
   createdAt: Date;
@@ -29,10 +29,10 @@ const ProgramSchema = new Schema<IProgram>(
     category: { type: String, required: true, trim: true },
     location: { type: String, required: true, trim: true },
     coordinates: {
-      lat: { type: Number },
-      lng: { type: Number },
+      lat: { type: Number, required: true },
+      lng: { type: Number, required: true },
     },
-    image: { type: String, trim: true },
+    image: { type: String, required: true, trim: true },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date },
   },

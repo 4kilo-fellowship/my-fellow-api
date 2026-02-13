@@ -1,35 +1,26 @@
 import { Request, Response } from "express";
-import { ProgramService } from "../services/program.service.js";
-import { programBaseSchema } from "../validators/program.validator.js";
+import { LeaderService } from "../services/leader.service.js";
+import { leaderBaseSchema } from "../validators/leader.validator.js";
 
-export class ProgramController {
+export class LeaderController {
   private static parseMultipartBody(body: any): any {
     const data = { ...body };
-    const jsonFields = ["coordinates"];
+    const booleanFields = ["isVerified"];
 
-    jsonFields.forEach((field) => {
+    booleanFields.forEach((field) => {
       if (typeof data[field] === "string") {
-        try {
-          data[field] = JSON.parse(data[field]);
-        } catch (e) {}
+        data[field] = data[field] === "true";
       }
     });
 
     return data;
   }
 
-  private static ensureImageForValidator(
-    data: any,
-    file?: Express.Multer.File,
-  ): any {
-    return data;
-  }
-
-  static async createProgram(req: Request, res: Response) {
+  static async createLeader(req: Request, res: Response) {
     try {
-      let data = ProgramController.parseMultipartBody(req.body);
+      let data = LeaderController.parseMultipartBody(req.body);
 
-      const parseResult = programBaseSchema.safeParse(data);
+      const parseResult = leaderBaseSchema.safeParse(data);
 
       if (!parseResult.success) {
         return res.status(400).json({
@@ -39,12 +30,12 @@ export class ProgramController {
         });
       }
 
-      const program = await ProgramService.create(parseResult.data, req.file);
+      const leader = await LeaderService.create(parseResult.data, req.file);
 
       return res.status(201).json({
         success: true,
-        message: "Program created successfully",
-        data: program,
+        message: "Leader created successfully",
+        data: leader,
       });
     } catch (error: any) {
       return res.status(500).json({
@@ -54,18 +45,18 @@ export class ProgramController {
     }
   }
 
-  static async getAllPrograms(req: Request, res: Response) {
+  static async getAllLeaders(req: Request, res: Response) {
     try {
       const query = {
-        category: (req.query.category as string) || undefined,
+        type: (req.query.type as string) || undefined,
         search: (req.query.search as string) || undefined,
       };
 
-      const programs = await ProgramService.getAll(query);
+      const leaders = await LeaderService.getAll(query);
 
       return res.status(200).json({
         success: true,
-        data: programs,
+        data: leaders,
       });
     } catch (error: any) {
       return res.status(500).json({
@@ -75,21 +66,21 @@ export class ProgramController {
     }
   }
 
-  static async getProgramById(req: Request, res: Response) {
+  static async getLeaderById(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const program = await ProgramService.getById(id);
+      const leader = await LeaderService.getById(id);
 
-      if (!program) {
+      if (!leader) {
         return res.status(404).json({
           success: false,
-          message: "Program not found",
+          message: "Leader not found",
         });
       }
 
       return res.status(200).json({
         success: true,
-        data: program,
+        data: leader,
       });
     } catch (error: any) {
       return res.status(500).json({
@@ -99,11 +90,11 @@ export class ProgramController {
     }
   }
 
-  static async updateProgram(req: Request, res: Response) {
+  static async updateLeader(req: Request, res: Response) {
     try {
-      let data = ProgramController.parseMultipartBody(req.body);
+      let data = LeaderController.parseMultipartBody(req.body);
 
-      const parseResult = programBaseSchema.partial().safeParse(data);
+      const parseResult = leaderBaseSchema.partial().safeParse(data);
 
       if (!parseResult.success) {
         return res.status(400).json({
@@ -115,26 +106,25 @@ export class ProgramController {
 
       const { id } = req.params;
 
-      const updatedProgram = await ProgramService.update(
+      const updatedLeader = await LeaderService.update(
         id,
         parseResult.data,
         req.file,
       );
 
-      if (!updatedProgram) {
+      if (!updatedLeader) {
         return res.status(404).json({
           success: false,
-          message: "Program not found",
+          message: "Leader not found",
         });
       }
 
       return res.status(200).json({
         success: true,
-        message: "Program updated successfully",
-        data: updatedProgram,
+        message: "Leader updated successfully",
+        data: updatedLeader,
       });
     } catch (error: any) {
-      console.error(error);
       return res.status(500).json({
         success: false,
         message: error.message || "Server error",
@@ -142,21 +132,21 @@ export class ProgramController {
     }
   }
 
-  static async deleteProgram(req: Request, res: Response) {
+  static async deleteLeader(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const success = await ProgramService.delete(id);
+      const success = await LeaderService.delete(id);
 
       if (!success) {
         return res.status(404).json({
           success: false,
-          message: "Program not found",
+          message: "Leader not found",
         });
       }
 
       return res.status(200).json({
         success: true,
-        message: "Program deleted successfully",
+        message: "Leader deleted successfully",
       });
     } catch (error: any) {
       return res.status(500).json({
@@ -167,4 +157,4 @@ export class ProgramController {
   }
 }
 
-export default ProgramController;
+export default LeaderController;
