@@ -30,6 +30,8 @@ export class AdminController {
   static async getAllRegistrations(req: Request, res: Response) {
     try {
       const registrations = await RegistrationModel.find()
+        .populate("userId", "-password")
+        .populate("eventId")
         .sort({ createdAt: -1 })
         .lean();
       return res.status(200).json({ success: true, data: registrations });

@@ -7,6 +7,7 @@ import {
 import { createRegistrationSchema } from "../validators/registration.validator.js";
 import { uploadImageToCloudinary } from "../services/cloudinary.service.js";
 import RegistrationModel from "../models/registration.model.js";
+import { AuthRequest } from "../middleware/auth.middleware.js";
 
 export class EventsController {
   static async createEvent(req: Request, res: Response) {
@@ -150,7 +151,7 @@ export class EventsController {
     }
   }
 
-  static async registerForEvent(req: Request, res: Response) {
+  static async registerForEvent(req: AuthRequest, res: Response) {
     try {
       const parseResult = createRegistrationSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -161,30 +162,30 @@ export class EventsController {
         });
       }
 
-      const data = parseResult.data;
+      const { eventId } = parseResult.data;
+      const userId = req.user!.sub;
 
-      // Check if event exists
-      const event = await EventModel.findOne({ title: data.eventTitle });
+      const event = await EventModel.findById(eventId);
       if (!event) {
         return res.status(404).json({
           success: false,
-          message: `Event with title "${data.eventTitle}" not found`,
+          message: "Event not found",
         });
       }
 
-      // Check if phone number already registered
       const existingRegistration = await RegistrationModel.findOne({
-        phoneNumber: data.phoneNumber,
+        userId,
+        eventId,
       });
 
       if (existingRegistration) {
         return res.status(400).json({
           success: false,
-          message: "A user with this phone number is already registered",
+          message: "You are already registered for this event",
         });
       }
 
-      const registration = await RegistrationModel.create(data);
+      const registration = await RegistrationModel.create({ userId, eventId });
 
       return res.status(201).json({
         success: true,
@@ -200,7 +201,11 @@ export class EventsController {
 
   static async getAllRegistrations(req: Request, res: Response) {
     try {
-      const registrations = await RegistrationModel.find().lean();
+      const registrations = await RegistrationModel.find()
+        .populate("userId", "-password")
+        .populate("eventId")
+        .sort({ createdAt: -1 })
+        .lean();
       return res.status(200).json({ success: true, data: registrations });
     } catch (error: any) {
       return res
@@ -211,8 +216,12 @@ export class EventsController {
 
   static async getRegistrationsByEvent(req: Request, res: Response) {
     try {
-      const { eventTitle } = req.params;
-      const registrations = await RegistrationModel.find({ eventTitle }).lean();
+      const { eventId } = req.params;
+      const registrations = await RegistrationModel.find({ eventId })
+        .populate("userId", "-password")
+        .populate("eventId")
+        .sort({ createdAt: -1 })
+        .lean();
       return res.status(200).json({ success: true, data: registrations });
     } catch (error: any) {
       return res
