@@ -23,6 +23,7 @@ router.put(
 );
 router.delete("/:id", requireAuth, requireAdmin, EventsController.deleteEvent);
 router.post("/register", requireAuth, EventsController.registerForEvent);
+router.post("/unregister", requireAuth, EventsController.unregisterFromEvent);
 router.get(
   "/registrations",
   requireAuth,

@@ -199,6 +199,43 @@ export class EventsController {
     }
   }
 
+  static async unregisterFromEvent(req: AuthRequest, res: Response) {
+    try {
+      const parseResult = createRegistrationSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: parseResult.error.format(),
+        });
+      }
+
+      const { eventId } = parseResult.data;
+      const userId = req.user!.sub;
+
+      const removed = await RegistrationModel.findOneAndDelete({
+        userId,
+        eventId,
+      }).lean();
+
+      if (!removed) {
+        return res.status(404).json({
+          success: false,
+          message: "Registration not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Successfully unregistered from the event",
+      });
+    } catch (error: any) {
+      return res
+        .status(500)
+        .json({ success: false, message: error.message || "Server error" });
+    }
+  }
+
   static async getAllRegistrations(req: Request, res: Response) {
     try {
       const registrations = await RegistrationModel.find()
