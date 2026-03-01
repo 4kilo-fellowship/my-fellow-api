@@ -135,7 +135,6 @@ export class AuthService {
       }
     }
 
-    // Update only the fields that are provided
     Object.keys(updates).forEach((key) => {
       if (updates[key] !== undefined) {
         (user as any)[key] = updates[key];

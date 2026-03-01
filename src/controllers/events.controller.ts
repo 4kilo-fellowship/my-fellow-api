@@ -229,6 +229,28 @@ export class EventsController {
         .json({ success: false, message: error.message || "Server error" });
     }
   }
+
+  static async checkRegistrationStatus(req: AuthRequest, res: Response) {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user!.sub;
+
+      const registration = await RegistrationModel.findOne({
+        userId,
+        eventId,
+      }).lean();
+
+      return res.status(200).json({
+        success: true,
+        isRegistered: !!registration,
+        data: registration || null,
+      });
+    } catch (error: any) {
+      return res
+        .status(500)
+        .json({ success: false, message: error.message || "Server error" });
+    }
+  }
 }
 
 export default EventsController;

@@ -35,5 +35,10 @@ router.get(
   requireAdmin,
   EventsController.getRegistrationsByEvent,
 );
+router.get(
+  "/registration-status/:eventId",
+  requireAuth,
+  EventsController.checkRegistrationStatus,
+);
 
 export default router;
