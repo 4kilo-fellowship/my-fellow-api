@@ -1,6 +1,13 @@
 import { prisma } from "../utils/prisma.js";
-import { Decimal } from "../generated/prisma/internal/prismaNamespace.js";
-import type { OrderStatus } from "../generated/prisma/client.js";
+import pkg from "../generated/prisma/index.js";
+import type {
+  Prisma as PrismaTypes,
+  OrderStatus,
+} from "../generated/prisma/index.js";
+
+const { Prisma } = pkg;
+const { Decimal } = Prisma;
+type Decimal = PrismaTypes.Decimal;
 
 interface OrderItemInput {
   productId: string;
@@ -8,18 +15,10 @@ interface OrderItemInput {
 }
 
 export class OrderService {
-  /**
-   * Create an order inside a Prisma interactive transaction.
-   * Steps:
-   *   1. Validate every product exists and has enough stock.
-   *   2. Deduct stock atomically.
-   *   3. Create Order + OrderItems.
-   */
   static async create(userId: string, items: OrderItemInput[]) {
     return prisma.$transaction(async (tx) => {
       let totalAmount = new Decimal(0);
 
-      // Collect order-item data while validating & deducting stock
       const orderItemsData: {
         productId: string;
         quantity: number;
@@ -41,7 +40,6 @@ export class OrderService {
           );
         }
 
-        // Deduct stock
         await tx.product.update({
           where: { id: item.productId },
           data: { stock: { decrement: item.quantity } },
@@ -57,7 +55,6 @@ export class OrderService {
         });
       }
 
-      // Create order with nested items
       const order = await tx.order.create({
         data: {
           userId,

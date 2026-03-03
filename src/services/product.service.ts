@@ -1,5 +1,5 @@
 import { prisma } from "../utils/prisma.js";
-import type { Prisma } from "../generated/prisma/client.js";
+import type { Prisma } from "../generated/prisma/index.js";
 
 export class ProductService {
   static async getAll(page: number = 1, limit: number = 20) {

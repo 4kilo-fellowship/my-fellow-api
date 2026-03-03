@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware.js";
 import { OrderService } from "../services/order.service.js";
-import type { OrderStatus } from "../generated/prisma/client.js";
+import type { OrderStatus } from "../generated/prisma/index.js";
 
 export class OrderController {
   static async create(req: AuthRequest, res: Response) {
@@ -12,7 +12,6 @@ export class OrderController {
       const order = await OrderService.create(userId, items);
       return res.status(201).json({ success: true, data: order });
     } catch (error: any) {
-      // Surface stock / not-found errors as 400
       if (
         error.message?.includes("Insufficient stock") ||
         error.message?.includes("Product not found")
@@ -69,7 +68,6 @@ export class OrderController {
           .json({ success: false, message: "Order not found" });
       }
 
-      // Non-admin users can only see their own orders
       if (req.user!.role !== "admin" && order.userId !== req.user!.sub) {
         return res.status(403).json({ success: false, message: "Forbidden" });
       }
