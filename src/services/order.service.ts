@@ -1,5 +1,5 @@
 import { prisma } from "../utils/prisma.js";
-import { Decimal } from "../generated/prisma/runtime/library.js";
+import { Decimal } from "../generated/prisma/internal/prismaNamespace.js";
 import type { OrderStatus } from "../generated/prisma/client.js";
 
 interface OrderItemInput {
