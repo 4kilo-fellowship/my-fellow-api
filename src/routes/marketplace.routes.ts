@@ -12,8 +12,6 @@ import OrderController from "../controllers/order.controller.js";
 
 const router = Router();
 
-// ─── Products ────────────────────────────────────────────────
-
 router.get("/products", ProductController.getAll);
 router.get("/products/:id", ProductController.getById);
 
@@ -39,8 +37,6 @@ router.delete(
   requireAdmin,
   ProductController.remove,
 );
-
-// ─── Orders ──────────────────────────────────────────────────
 
 router.post(
   "/orders",
