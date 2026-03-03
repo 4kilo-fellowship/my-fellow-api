@@ -43,3 +43,4 @@ build/
 
 # Optional: MongoDB dump files
 dump/
+/src/generated/prisma
