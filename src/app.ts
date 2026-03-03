@@ -10,6 +10,7 @@ import programRoutes from "./routes/program.routes.js";
 import locationRoutes from "./routes/location.routes.js";
 import leaderRoutes from "./routes/leader.routes.js";
 import devotionRoutes from "./routes/devotion.routes.js";
+import marketplaceRoutes from "./routes/marketplace.routes.js";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
@@ -89,6 +90,13 @@ const devotionLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const marketplaceLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use("/api/auth", authLimiter, authRoutes);
 
 app.use("/api/upload", uploadLimiter, uploadRoutes);
@@ -101,6 +109,7 @@ app.use("/api/programs", programLimiter, programRoutes);
 app.use("/api/locations", locationLimiter, locationRoutes);
 app.use("/api/leaders", leaderLimiter, leaderRoutes);
 app.use("/api/devotions", devotionLimiter, devotionRoutes);
+app.use("/api/marketplace", marketplaceLimiter, marketplaceRoutes);
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
