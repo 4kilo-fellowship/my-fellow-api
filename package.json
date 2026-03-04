@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon --exec tsx src/server.ts",
-    "build": "tsc",
+    "build": "npx prisma generate && tsc",
     "lint": "tsc --noEmit",
     "db:generate": "npx prisma generate",
     "db:push": "npx prisma db push",
