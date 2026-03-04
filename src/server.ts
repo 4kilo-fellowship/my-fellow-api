@@ -1,4 +1,7 @@
 import "dotenv/config";
+import dns from "node:dns";
+dns.setDefaultResultOrder("ipv4first");
+
 import app from "./app.js";
 import mongoose from "mongoose";
 import RegistrationModel from "./models/registration.model.js";

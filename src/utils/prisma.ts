@@ -8,12 +8,16 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: InstanceType<typeof PrismaClient>;
 };
 
+import pg from "pg";
+const { Pool } = pg;
+
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error("DATABASE_URL is not defined in environment variables");
   }
-  const adapter = new PrismaPg(connectionString);
+  const pool = new Pool({ connectionString });
+  const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
 

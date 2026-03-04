@@ -12,7 +12,7 @@ export const createProductSchema = z.object({
       .string()
       .min(5, "Short description must be at least 5 characters")
       .max(300, "Short description must be at most 300 characters"),
-    price: z
+    price: z.coerce
       .number({ message: "Price must be a number" })
       .positive("Price must be greater than 0"),
     category: z.string().optional().default("other"),
@@ -21,7 +21,7 @@ export const createProductSchema = z.object({
       .min(1, "At least one image URL is required")
       .max(4, "At most 4 image URLs are allowed")
       .optional(),
-    stock: z
+    stock: z.coerce
       .number({ message: "Stock must be a number" })
       .int("Stock must be an integer")
       .min(0, "Stock cannot be negative"),
@@ -40,7 +40,7 @@ export const updateProductSchema = z.object({
       .min(5, "Short description must be at least 5 characters")
       .max(300, "Short description must be at most 300 characters")
       .optional(),
-    price: z
+    price: z.coerce
       .number({ message: "Price must be a number" })
       .positive("Price must be greater than 0")
       .optional(),
@@ -50,7 +50,7 @@ export const updateProductSchema = z.object({
       .max(4, "At most 4 image URLs are allowed")
       .optional(),
     category: z.string().optional(),
-    stock: z
+    stock: z.coerce
       .number({ message: "Stock must be a number" })
       .int("Stock must be an integer")
       .min(0, "Stock cannot be negative")
@@ -66,7 +66,7 @@ export const createOrderSchema = z.object({
       .array(
         z.object({
           productId: z.string().uuid("Product ID must be a valid UUID"),
-          quantity: z
+          quantity: z.coerce
             .number({ message: "Quantity must be a number" })
             .int("Quantity must be an integer")
             .min(1, "Quantity must be at least 1"),

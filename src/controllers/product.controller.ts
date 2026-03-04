@@ -50,17 +50,27 @@ export class ProductController {
 
       // Handle file uploads
       if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-        const folder = category
-          ? `marketplace/${category.toLowerCase().replace(/\s+/g, "-")}`
-          : "marketplace/others";
+        try {
+          const folder = category
+            ? `marketplace/${category.toLowerCase().replace(/\s+/g, "-")}`
+            : "marketplace/others";
 
-        const uploadPromises = (req.files as Express.Multer.File[]).map(
-          (file) => uploadImageToCloudinary(file.buffer, { folder }),
-        );
+          const uploadPromises = (req.files as Express.Multer.File[]).map(
+            (file) => uploadImageToCloudinary(file.buffer, { folder }),
+          );
 
-        const uploadResults = await Promise.all(uploadPromises);
-        const uploadedUrls = uploadResults.map((result) => result.secure_url);
-        finalImageUrls = [...finalImageUrls, ...uploadedUrls];
+          const uploadResults = await Promise.all(uploadPromises);
+          const uploadedUrls = uploadResults.map((result) => result.secure_url);
+          finalImageUrls = [...finalImageUrls, ...uploadedUrls];
+        } catch (uploadError: any) {
+          console.error("Cloudinary Upload Failed:", uploadError);
+          return res.status(503).json({
+            success: false,
+            message:
+              "Image upload service (Cloudinary) is temporarily unavailable. Please check your internet connection.",
+            error: uploadError.message,
+          });
+        }
       }
 
       if (finalImageUrls.length === 0) {
