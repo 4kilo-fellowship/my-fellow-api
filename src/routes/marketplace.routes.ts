@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth, requireAdmin } from "../middleware/auth.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
+import { uploadMultiple } from "../middleware/upload.middleware.js";
 import {
   createProductSchema,
   updateProductSchema,
@@ -19,6 +20,7 @@ router.post(
   "/products",
   requireAuth,
   requireAdmin,
+  uploadMultiple,
   validate(createProductSchema),
   ProductController.create,
 );
@@ -27,6 +29,7 @@ router.put(
   "/products/:id",
   requireAuth,
   requireAdmin,
+  uploadMultiple,
   validate(updateProductSchema),
   ProductController.update,
 );

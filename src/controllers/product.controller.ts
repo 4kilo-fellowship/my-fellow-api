@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware.js";
 import { ProductService } from "../services/product.service.js";
+import { uploadImageToCloudinary } from "../services/cloudinary.service.js";
 
 export class ProductController {
   static async getAll(req: AuthRequest, res: Response) {
@@ -38,13 +39,43 @@ export class ProductController {
 
   static async create(req: AuthRequest, res: Response) {
     try {
-      const { title, shortDescription, price, imageUrls, stock } = req.body;
+      const { title, shortDescription, price, imageUrls, stock, category } =
+        req.body;
+
+      let finalImageUrls: string[] = Array.isArray(imageUrls)
+        ? imageUrls
+        : imageUrls
+          ? [imageUrls]
+          : [];
+
+      // Handle file uploads
+      if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+        const folder = category
+          ? `marketplace/${category.toLowerCase().replace(/\s+/g, "-")}`
+          : "marketplace/others";
+
+        const uploadPromises = (req.files as Express.Multer.File[]).map(
+          (file) => uploadImageToCloudinary(file.buffer, { folder }),
+        );
+
+        const uploadResults = await Promise.all(uploadPromises);
+        const uploadedUrls = uploadResults.map((result) => result.secure_url);
+        finalImageUrls = [...finalImageUrls, ...uploadedUrls];
+      }
+
+      if (finalImageUrls.length === 0) {
+        return res
+          .status(400)
+          .json({ success: false, message: "At least one image is required" });
+      }
+
       const product = await ProductService.create({
         title,
         shortDescription,
         price,
-        imageUrls,
-        stock,
+        imageUrls: finalImageUrls,
+        stock: parseInt(stock as string) || 0,
+        category: category || "other",
       });
       return res.status(201).json({ success: true, data: product });
     } catch (error: any) {
@@ -63,7 +94,42 @@ export class ProductController {
           .json({ success: false, message: "Product not found" });
       }
 
-      const product = await ProductService.update(req.params.id, req.body);
+      const { title, shortDescription, price, imageUrls, stock, category } =
+        req.body;
+      let finalImageUrls = imageUrls;
+
+      // Handle file uploads if any
+      if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+        const cat = category || existing.category || "other";
+        const folder = `marketplace/${cat.toLowerCase().replace(/\s+/g, "-")}`;
+
+        const uploadPromises = (req.files as Express.Multer.File[]).map(
+          (file) => uploadImageToCloudinary(file.buffer, { folder }),
+        );
+
+        const uploadResults = await Promise.all(uploadPromises);
+        const uploadedUrls = uploadResults.map((result) => result.secure_url);
+
+        // If body has images, we append. If not, we might want to keep existing or replace.
+        // For simplicity, we'll append to existing if imageUrls is not provided in body,
+        // or append to body imageUrls if provided.
+        const baseImages = Array.isArray(imageUrls)
+          ? imageUrls
+          : imageUrls
+            ? [imageUrls]
+            : existing.imageUrls;
+
+        finalImageUrls = [...baseImages, ...uploadedUrls];
+      }
+
+      const product = await ProductService.update(req.params.id, {
+        title,
+        shortDescription,
+        price: price ? parseFloat(price as string) : undefined,
+        imageUrls: finalImageUrls,
+        stock: stock ? parseInt(stock as string) : undefined,
+        category,
+      });
       return res.status(200).json({ success: true, data: product });
     } catch (error: any) {
       return res

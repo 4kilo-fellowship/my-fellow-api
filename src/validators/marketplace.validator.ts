@@ -15,10 +15,12 @@ export const createProductSchema = z.object({
     price: z
       .number({ message: "Price must be a number" })
       .positive("Price must be greater than 0"),
+    category: z.string().optional().default("other"),
     imageUrls: z
       .array(z.string().url("Each image must be a valid URL"))
       .min(1, "At least one image URL is required")
-      .max(4, "At most 4 image URLs are allowed"),
+      .max(4, "At most 4 image URLs are allowed")
+      .optional(),
     stock: z
       .number({ message: "Stock must be a number" })
       .int("Stock must be an integer")
@@ -47,6 +49,7 @@ export const updateProductSchema = z.object({
       .min(1, "At least one image URL is required")
       .max(4, "At most 4 image URLs are allowed")
       .optional(),
+    category: z.string().optional(),
     stock: z
       .number({ message: "Stock must be a number" })
       .int("Stock must be an integer")
