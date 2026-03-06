@@ -7,43 +7,41 @@ import {
 } from "../models/transaction.model.js";
 import { paymentInitSchema } from "../validators/payment.validator.js";
 import { AuthRequest } from "../middleware/auth.middleware.js";
+import { UserModel } from "../models/user.model.js";
 
 export class PaymentController {
   static async initialize(req: AuthRequest, res: Response) {
     try {
       const parsed = paymentInitSchema.parse(req.body);
-      const {
-        amount,
-        fullName,
-        phoneNumber,
-        email,
-        team,
-        department,
-        yearOfStudy,
-        telegramUserName,
-        reason,
-      } = parsed;
+      const { amount, email, reason } = parsed;
       const userId = req.user?.sub;
+
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "User not authenticated" });
+      }
+
+      const user = await UserModel.findById(userId);
+      if (!user) {
+        return res
+          .status(404)
+          .json({ success: false, message: "User not found" });
+      }
 
       const tx_ref = `fellow-tx-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
 
-      // Create pending transaction in DB
+      // Create pending transaction in DB (Minimal fields)
       const transaction = await TransactionModel.create({
         userId,
-        fullName,
-        phoneNumber,
-        team,
-        department,
-        yearOfStudy,
-        telegramUserName,
         tx_ref,
         amount,
-        reason,
+        reason: reason || "Donation",
         status: TransactionStatus.PENDING,
       });
 
       // Split name for Chapa API
-      const nameParts = fullName.trim().split(" ");
+      const nameParts = user.fullName.trim().split(" ");
       const firstName = nameParts[0];
       const lastName =
         nameParts.length > 1 ? nameParts.slice(1).join(" ") : "Fellow";
@@ -59,7 +57,7 @@ export class PaymentController {
         return_url: process.env.CHAPA_RETURN_URL,
         customization: {
           title: "Fellowship Pay",
-          description: reason || "Payment for Fellowship services",
+          description: reason || "Donation for Fellowship services",
         },
       };
 

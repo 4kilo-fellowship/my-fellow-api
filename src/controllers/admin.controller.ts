@@ -45,6 +45,7 @@ export class AdminController {
   static async getAllTransactions(req: Request, res: Response) {
     try {
       const transactions = await TransactionModel.find()
+        .populate("userId", "fullName phoneNumber")
         .sort({ createdAt: -1 })
         .lean();
       return res.status(200).json({ success: true, data: transactions });

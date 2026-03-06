@@ -7,13 +7,7 @@ export enum TransactionStatus {
 }
 
 export interface ITransaction {
-  userId?: mongoose.Types.ObjectId;
-  fullName: string;
-  phoneNumber: string;
-  team?: string | null;
-  department?: string | null;
-  yearOfStudy?: string | null;
-  telegramUserName?: string | null;
+  userId: mongoose.Types.ObjectId;
   tx_ref: string;
   amount: number;
   reason: string;
@@ -26,16 +20,10 @@ export interface ITransactionDocument extends ITransaction, Document {}
 
 const TransactionSchema = new Schema<ITransactionDocument>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "User" },
-    fullName: { type: String, required: true },
-    phoneNumber: { type: String, required: true },
-    team: { type: String, default: null },
-    department: { type: String, default: null },
-    yearOfStudy: { type: String, default: null },
-    telegramUserName: { type: String, default: null },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     tx_ref: { type: String, required: true, unique: true },
     amount: { type: Number, required: true },
-    reason: { type: String, default: "gift" },
+    reason: { type: String, default: "donation" },
     status: {
       type: String,
       enum: Object.values(TransactionStatus),
