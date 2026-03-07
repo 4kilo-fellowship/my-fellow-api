@@ -31,7 +31,6 @@ export class PaymentController {
 
       const tx_ref = `fellow-tx-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
 
-      // Create pending transaction in DB (Minimal fields)
       const transaction = await TransactionModel.create({
         userId,
         tx_ref,
@@ -40,7 +39,6 @@ export class PaymentController {
         status: TransactionStatus.PENDING,
       });
 
-      // Split name for Chapa API
       const nameParts = user.fullName.trim().split(" ");
       const firstName = nameParts[0];
       const lastName =
@@ -78,7 +76,6 @@ export class PaymentController {
         return res.status(400).json({ success: false, errors: err.errors });
       }
 
-      // Check if it's a Chapa validation error (often stringified JSON)
       if (
         err.message &&
         (err.message.includes("validation") || err.message.startsWith("{"))
@@ -90,9 +87,7 @@ export class PaymentController {
             message: "Data validation failed at Chapa",
             errors: chapaError,
           });
-        } catch (parseErr) {
-          // If not valid JSON, treat as regular message
-        }
+        } catch (parseErr) {}
       }
 
       return res.status(500).json({
@@ -123,9 +118,7 @@ export class PaymentController {
           .json({ success: false, message: "Transaction not found" });
       }
 
-      // Update transaction status if it's successful
       if (response.status === "success" || response.data.status === "success") {
-        // Validate amount matches
         if (Number(response.data.amount) !== transaction.amount) {
           transaction.status = TransactionStatus.FAILED;
           await transaction.save();
@@ -162,7 +155,6 @@ export class PaymentController {
       const signature = req.headers["x-chapa-signature"] as string;
       const body = req.rawBody || JSON.stringify(req.body);
 
-      // Validate signature
       if (
         !signature ||
         !chapaService.validateWebhookSignature(body, signature)
@@ -176,13 +168,11 @@ export class PaymentController {
       const transaction = await TransactionModel.findOne({ tx_ref });
 
       if (transaction) {
-        // If already successful, ignore (idempotency)
         if (transaction.status === TransactionStatus.SUCCESS) {
           return res.status(200).send();
         }
 
         if (status === "success") {
-          // Validate amount
           if (Number(amount) === transaction.amount) {
             transaction.status = TransactionStatus.SUCCESS;
           } else {
@@ -195,7 +185,6 @@ export class PaymentController {
         await transaction.save();
       }
 
-      // Chapa expects a 200 response
       return res.status(200).send();
     } catch (err: any) {
       console.error("Webhook Error:", err);
@@ -215,7 +204,6 @@ export class PaymentController {
           .json({ success: false, message: "User not authenticated" });
       }
 
-      // Fetch all givings (transactions) for this user, sorted by most recent
       const givings = await TransactionModel.find({ userId })
         .sort({ createdAt: -1 })
         .lean();
