@@ -14,6 +14,7 @@ import marketplaceRoutes from "./routes/marketplace.routes.js";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
+import job from "./utils/cron.js";
 
 const app = express();
 
@@ -112,5 +113,7 @@ app.use("/api/devotions", devotionLimiter, devotionRoutes);
 app.use("/api/marketplace", marketplaceLimiter, marketplaceRoutes);
 
 app.get("/health", (req, res) => res.json({ ok: true }));
+
+job.start();
 
 export default app;
