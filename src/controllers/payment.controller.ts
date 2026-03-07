@@ -204,4 +204,33 @@ export class PaymentController {
         .json({ success: false, message: "Webhook processing failed" });
     }
   }
+
+  static async getMyGivings(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user?.sub;
+
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "User not authenticated" });
+      }
+
+      // Fetch all givings (transactions) for this user, sorted by most recent
+      const givings = await TransactionModel.find({ userId })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      return res.status(200).json({
+        success: true,
+        count: givings.length,
+        data: givings,
+      });
+    } catch (err: any) {
+      console.error("Get My Givings Error:", err);
+      return res.status(500).json({
+        success: false,
+        message: err.message || "Failed to fetch givings",
+      });
+    }
+  }
 }

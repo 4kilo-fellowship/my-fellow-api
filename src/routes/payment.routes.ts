@@ -13,4 +13,7 @@ router.get("/chapa/verify/:tx_ref", requireAuth, PaymentController.verify);
 // Webhook handling
 router.post("/chapa/webhook", PaymentController.webhook);
 
+// Get My Givings (all transactions/donations by user)
+router.get("/my-givings", requireAuth, PaymentController.getMyGivings);
+
 export default router;
