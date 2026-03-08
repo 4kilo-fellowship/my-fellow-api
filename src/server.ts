@@ -1,10 +1,6 @@
 import "dotenv/config";
-import dns from "node:dns";
-dns.setDefaultResultOrder("ipv4first");
-
 import app from "./app.js";
 import mongoose from "mongoose";
-import RegistrationModel from "./models/registration.model.js";
 
 const PORT: number = Number(process.env.PORT) || 4000;
 const MONGO_URI = process.env.MONGO_URI;
@@ -15,11 +11,8 @@ if (!MONGO_URI) {
 
 mongoose
   .connect(MONGO_URI)
-  .then(async () => {
+  .then(() => {
     console.log("MongoDB connected");
-
-    await RegistrationModel.syncIndexes();
-    console.log("Registration indexes synced");
 
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on http://localhost:${PORT}`);

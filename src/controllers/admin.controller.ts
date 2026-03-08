@@ -7,8 +7,48 @@ import { TransactionModel } from "../models/transaction.model.js";
 export class AdminController {
   static async getAllUsers(req: Request, res: Response) {
     try {
-      const users = await UserModel.find().select("-password").lean();
-      return res.status(200).json({ success: true, data: users });
+      const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
+      const limit = Math.max(
+        1,
+        parseInt((req.query.limit as string) || "20", 10),
+      );
+      const { search, team, department, yearOfStudy } = req.query;
+      const skip = (page - 1) * limit;
+
+      const query: any = {};
+
+      if (search) {
+        query.$or = [
+          { fullName: { $regex: search, $options: "i" } },
+          { phoneNumber: { $regex: search, $options: "i" } },
+          { telegramUserName: { $regex: search, $options: "i" } },
+        ];
+      }
+
+      if (team && team !== "all") query.team = team;
+      if (department && department !== "all") query.department = department;
+      if (yearOfStudy && yearOfStudy !== "all") query.yearOfStudy = yearOfStudy;
+
+      const [users, total] = await Promise.all([
+        UserModel.find(query)
+          .select("-password")
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        UserModel.countDocuments(query),
+      ]);
+
+      return res.status(200).json({
+        success: true,
+        data: users,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
     } catch (error: any) {
       return res
         .status(500)
