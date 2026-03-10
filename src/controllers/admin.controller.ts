@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import { UserModel } from "../models/user.model.js";
 import EventModel from "../models/event.model.js";
 import RegistrationModel from "../models/registration.model.js";
@@ -69,12 +70,110 @@ export class AdminController {
 
   static async getAllRegistrations(req: Request, res: Response) {
     try {
-      const registrations = await RegistrationModel.find()
-        .populate("userId", "-password")
-        .populate("eventId")
-        .sort({ createdAt: -1 })
-        .lean();
-      return res.status(200).json({ success: true, data: registrations });
+      const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
+      const limit = Math.max(
+        1,
+        parseInt((req.query.limit as string) || "10", 10),
+      );
+      const { eventId, userId, search } = req.query;
+      const skip = (page - 1) * limit;
+
+      const pipeline: any[] = [];
+
+      const match: any = {};
+      if (eventId)
+        match.eventId = new mongoose.Types.ObjectId(eventId as string);
+      if (userId) match.userId = new mongoose.Types.ObjectId(userId as string);
+
+      if (Object.keys(match).length > 0) {
+        pipeline.push({ $match: match });
+      }
+
+      pipeline.push({
+        $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user",
+        },
+      });
+      pipeline.push({ $unwind: "$user" });
+
+      pipeline.push({
+        $lookup: {
+          from: "events",
+          localField: "eventId",
+          foreignField: "_id",
+          as: "event",
+        },
+      });
+      pipeline.push({ $unwind: "$event" });
+
+      if (search) {
+        pipeline.push({
+          $match: {
+            $or: [
+              { "user.fullName": { $regex: search, $options: "i" } },
+              { "user.phoneNumber": { $regex: search, $options: "i" } },
+              { "event.title": { $regex: search, $options: "i" } },
+            ],
+          },
+        });
+      }
+
+      pipeline.push({ $sort: { createdAt: -1 } });
+
+      pipeline.push({
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: [{ $skip: skip }, { $limit: limit }],
+        },
+      });
+
+      const [result] = await RegistrationModel.aggregate(pipeline);
+
+      const total = result.metadata[0]?.total || 0;
+      const registrations = result.data;
+
+      return res.status(200).json({
+        success: true,
+        data: registrations,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error: any) {
+      return res
+        .status(500)
+        .json({ success: false, message: error.message || "Server error" });
+    }
+  }
+
+  static async getRegistrationsReport(req: Request, res: Response) {
+    try {
+      const events = await EventModel.find().lean();
+
+      const report = await Promise.all(
+        events.map(async (event) => {
+          const count = await RegistrationModel.countDocuments({
+            eventId: event._id,
+          });
+          return {
+            event: {
+              id: event._id,
+              title: event.title,
+              startDate: event.startDate,
+              endDate: event.endDate,
+            },
+            registrationCount: count,
+          };
+        }),
+      );
+
+      return res.status(200).json({ success: true, data: report });
     } catch (error: any) {
       return res
         .status(500)

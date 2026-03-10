@@ -10,6 +10,7 @@ router.use(requireAdmin);
 router.get("/users", AdminController.getAllUsers);
 router.get("/events", AdminController.getAllEvents);
 router.get("/registrations", AdminController.getAllRegistrations);
+router.get("/registrations/report", AdminController.getRegistrationsReport);
 router.get("/transactions", AdminController.getAllTransactions);
 router.get("/stats", AdminController.getStats);
 
