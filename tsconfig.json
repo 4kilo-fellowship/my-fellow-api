@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "isolatedModules": true
   },
-  "exclude": ["prisma.config.ts"]
+  "exclude": ["prisma.config.ts", "tmp"]
 }
