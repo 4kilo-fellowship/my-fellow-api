@@ -8,6 +8,10 @@ export interface IEvent extends Document {
   endDate: Date;
   buttonText?: string;
   imageUrl: string;
+  isDeleted: boolean;
+  registrationLimit?: number | null;
+  registrationsCount: number;
+  scheduledAt?: Date | null;
   createdAt: Date;
 }
 
@@ -20,6 +24,10 @@ const EventSchema = new Schema<IEvent>(
     endDate: { type: Date, required: true },
     buttonText: { type: String, trim: true },
     imageUrl: { type: String, required: true },
+    isDeleted: { type: Boolean, default: false },
+    registrationLimit: { type: Number, default: null },
+    registrationsCount: { type: Number, default: 0 },
+    scheduledAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

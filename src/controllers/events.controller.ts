@@ -1,13 +1,13 @@
 import { Request, Response } from "express";
+import { AuthRequest } from "../middleware/auth.middleware.js";
 import EventModel from "../models/event.model.js";
+import RegistrationModel from "../models/registration.model.js";
+import { uploadImageToCloudinary } from "../services/cloudinary.service.js";
 import {
   createEventSchema,
   updateEventSchema,
 } from "../validators/event.validator.js";
 import { createRegistrationSchema } from "../validators/registration.validator.js";
-import { uploadImageToCloudinary } from "../services/cloudinary.service.js";
-import RegistrationModel from "../models/registration.model.js";
-import { AuthRequest } from "../middleware/auth.middleware.js";
 
 export class EventsController {
   static async createEvent(req: Request, res: Response) {
@@ -48,6 +48,8 @@ export class EventsController {
         endDate: new Date(data.endDate),
         buttonText: data.buttonText,
         imageUrl,
+        registrationLimit: data.registrationLimit ?? undefined,
+        scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : undefined,
       });
 
       return res.status(201).json({ success: true, data: created });
@@ -62,8 +64,19 @@ export class EventsController {
     try {
       const sort = (req.query.sort as string) || "asc";
       const sortOrder = sort === "desc" ? -1 : 1;
+      const isAdmin = (req as any).user?.role === "admin";
 
-      const events = await EventModel.find()
+      const query: any = { isDeleted: { $ne: true } };
+
+      if (!isAdmin) {
+        query.$or = [
+          { scheduledAt: { $exists: false } },
+          { scheduledAt: { $eq: null } },
+          { scheduledAt: { $lte: new Date() } },
+        ];
+      }
+
+      const events = await EventModel.find(query)
         .sort({ startDate: sortOrder })
         .lean();
 
@@ -115,6 +128,11 @@ export class EventsController {
 
       if (data.startDate) data.startDate = new Date(data.startDate);
       if (data.endDate) data.endDate = new Date(data.endDate);
+      if (data.scheduledAt) {
+        data.scheduledAt = new Date(data.scheduledAt);
+      } else if (data.scheduledAt === null) {
+        data.scheduledAt = undefined; // Or null if you want to explicitly unset
+      }
 
       const updated = await EventModel.findByIdAndUpdate(id, data, {
         new: true,
@@ -136,7 +154,11 @@ export class EventsController {
   static async deleteEvent(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const removed = await EventModel.findByIdAndDelete(id).lean();
+      const removed = await EventModel.findByIdAndUpdate(
+        id,
+        { isDeleted: true },
+        { new: true },
+      ).lean();
       if (!removed) {
         return res
           .status(404)
@@ -173,6 +195,17 @@ export class EventsController {
         });
       }
 
+      if (
+        event.registrationLimit !== null &&
+        event.registrationLimit !== undefined &&
+        event.registrationsCount >= event.registrationLimit
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Event is full",
+        });
+      }
+
       const existingRegistration = await RegistrationModel.findOne({
         userId,
         eventId,
@@ -186,6 +219,11 @@ export class EventsController {
       }
 
       const registration = await RegistrationModel.create({ userId, eventId });
+
+      // Atomically increment registrationsCount
+      await EventModel.findByIdAndUpdate(eventId, {
+        $inc: { registrationsCount: 1 },
+      });
 
       return res.status(201).json({
         success: true,
@@ -224,6 +262,11 @@ export class EventsController {
           message: "Registration not found",
         });
       }
+
+      // Atomically decrement registrationsCount
+      await EventModel.findByIdAndUpdate(eventId, {
+        $inc: { registrationsCount: -1 },
+      });
 
       return res.status(200).json({
         success: true,

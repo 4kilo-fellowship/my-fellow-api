@@ -14,6 +14,14 @@ export const eventBaseSchema = z.object({
   }),
   buttonText: z.string().optional(),
   imageUrl: z.string().url().optional(),
+  registrationLimit: z.number().nullable().optional(),
+  scheduledAt: z
+    .string()
+    .refine((s) => !Number.isNaN(Date.parse(s)), {
+      message: "scheduledAt must be a valid date string",
+    })
+    .optional()
+    .nullable(),
 });
 
 export const createEventSchema = eventBaseSchema.superRefine((data, ctx) => {
@@ -37,6 +45,14 @@ export const updateEventSchema = z
     endDate: z.string().optional(),
     buttonText: z.string().optional(),
     imageUrl: z.string().url().optional(),
+    registrationLimit: z.number().nullable().optional(),
+    scheduledAt: z
+      .string()
+      .refine((s) => !Number.isNaN(Date.parse(s)), {
+        message: "scheduledAt must be a valid date string",
+      })
+      .optional()
+      .nullable(),
   })
   .superRefine((data, ctx) => {
     if (data.startDate && data.endDate) {

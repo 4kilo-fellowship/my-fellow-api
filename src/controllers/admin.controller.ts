@@ -183,11 +183,83 @@ export class AdminController {
 
   static async getAllTransactions(req: Request, res: Response) {
     try {
-      const transactions = await TransactionModel.find()
-        .populate("userId", "fullName phoneNumber")
-        .sort({ createdAt: -1 })
-        .lean();
-      return res.status(200).json({ success: true, data: transactions });
+      const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
+      const limit = Math.max(
+        1,
+        parseInt((req.query.limit as string) || "10", 10),
+      );
+      const { search, status } = req.query;
+      const skip = (page - 1) * limit;
+
+      const pipeline: any[] = [];
+
+      // Match Stage
+      const match: any = {};
+      if (status && status !== "all") {
+        match.status = status;
+      }
+      if (Object.keys(match).length > 0) {
+        pipeline.push({ $match: match });
+      }
+
+      // Lookup User
+      pipeline.push({
+        $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user",
+        },
+      });
+      pipeline.push({ $unwind: "$user" });
+
+      // Search Stage
+      if (search) {
+        pipeline.push({
+          $match: {
+            $or: [
+              { "user.fullName": { $regex: search, $options: "i" } },
+              { "user.phoneNumber": { $regex: search, $options: "i" } },
+              { tx_ref: { $regex: search, $options: "i" } },
+              { reason: { $regex: search, $options: "i" } },
+            ],
+          },
+        });
+      }
+
+      pipeline.push({ $sort: { createdAt: -1 } });
+
+      pipeline.push({
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: [{ $skip: skip }, { $limit: limit }],
+        },
+      });
+
+      const [result] = await TransactionModel.aggregate(pipeline);
+
+      // Map back to a structure that frontend expects (userId populate emulation)
+      const transactions = result.data.map((tx: any) => ({
+        ...tx,
+        userId: {
+          _id: tx.user._id,
+          fullName: tx.user.fullName,
+          phoneNumber: tx.user.phoneNumber,
+        },
+      }));
+
+      const total = result.metadata[0]?.total || 0;
+
+      return res.status(200).json({
+        success: true,
+        data: transactions,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
     } catch (error: any) {
       return res
         .status(500)
