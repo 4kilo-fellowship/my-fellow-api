@@ -42,6 +42,8 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          DATABASE_URL: mongodb://localhost:27017/test
 
       - name: Run tests
         run: npm test
