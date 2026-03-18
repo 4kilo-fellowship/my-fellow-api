@@ -16,7 +16,7 @@ interface OrderItemInput {
 
 export class OrderService {
   static async create(userId: string, items: OrderItemInput[]) {
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: PrismaTypes.TransactionClient) => {
       let totalAmount = new Decimal(0);
 
       const orderItemsData: {
