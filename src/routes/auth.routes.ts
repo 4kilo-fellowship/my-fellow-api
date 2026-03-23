@@ -13,6 +13,7 @@ router.post(
   AuthController.register,
 );
 router.post("/signin", AuthController.login);
+router.post("/lookup-by-phone", AuthController.lookupByPhone);
 router.get("/me", requireAuth, AuthController.getMe);
 router.patch(
   "/profile",

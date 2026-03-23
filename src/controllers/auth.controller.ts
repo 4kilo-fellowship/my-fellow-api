@@ -41,6 +41,25 @@ export class AuthController {
       });
     }
   }
+
+  static async lookupByPhone(req: AuthRequest, res: Response) {
+    try {
+      const { phoneNumber } = req.body;
+      if (!phoneNumber) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Phone number is required" });
+      }
+
+      const { user } = await AuthService.lookupByPhoneNumber(phoneNumber);
+      return res.status(200).json({ success: true, user });
+    } catch (err: any) {
+      return res.status(401).json({
+        success: false,
+        message: err.message || "User not found",
+      });
+    }
+  }
   static async getMe(req: AuthRequest, res: Response) {
     try {
       const userId = req.user?.sub;

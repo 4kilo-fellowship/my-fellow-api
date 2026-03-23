@@ -4,6 +4,16 @@ import { signJwt } from "../utils/jwt.js";
 import { uploadImageToCloudinary } from "./cloudinary.service.js";
 
 export class AuthService {
+  static normalizePhone(phone: string): string {
+    let n = phone.replace(/\D/g, "");
+    if (n.startsWith("251") && n.length >= 12) {
+      n = "0" + n.substring(3);
+    } else if (n.length === 9 && (n.startsWith("9") || n.startsWith("7"))) {
+      n = "0" + n;
+    }
+    return n;
+  }
+
   static async register(dto: SignUpDTO, file?: Express.Multer.File) {
     const existing = await UserModel.findOne({ phoneNumber: dto.phoneNumber });
     if (existing) {
@@ -70,7 +80,8 @@ export class AuthService {
   }
 
   static async login(dto: SignInDTO) {
-    const user = await UserModel.findOne({ phoneNumber: dto.phoneNumber });
+    const phone = AuthService.normalizePhone(dto.phoneNumber);
+    const user = await UserModel.findOne({ phoneNumber: phone });
     if (!user) {
       throw new Error("Invalid credentials");
     }
@@ -100,6 +111,36 @@ export class AuthService {
     };
 
     return { user: safeUser, token };
+  }
+
+  static async lookupByPhoneNumber(phoneNumber: string) {
+    const phone = AuthService.normalizePhone(phoneNumber);
+    const user = await UserModel.findOne({ phoneNumber: phone });
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const safeUser = {
+      id: user._id,
+      fullName: user.fullName,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      team: user.team,
+      department: user.department,
+      yearOfStudy: user.yearOfStudy,
+      telegramUserName: user.telegramUserName,
+      profileImage: user.profileImage,
+      pastTeam: user.pastTeam,
+      createdAt: user.createdAt,
+    };
+
+    return { user: safeUser };
+  }
+
+  static async findByPhoneNumber(
+    phoneNumber: string,
+  ): Promise<IUserDocument | null> {
+    return UserModel.findOne({ phoneNumber }).select("-password");
   }
 
   static async findById(id: string): Promise<IUserDocument | null> {
