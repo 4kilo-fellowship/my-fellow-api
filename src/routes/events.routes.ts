@@ -22,6 +22,13 @@ router.put(
   EventsController.updateEvent,
 );
 router.delete("/:id", requireAuth, requireAdmin, EventsController.deleteEvent);
+router.post(
+  "/generate-poster",
+  requireAuth,
+  requireAdmin,
+  uploadSingle,
+  EventsController.generatePoster,
+);
 router.post("/register", requireAuth, EventsController.registerForEvent);
 router.post("/unregister", requireAuth, EventsController.unregisterFromEvent);
 router.get(

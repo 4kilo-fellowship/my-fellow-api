@@ -3,6 +3,7 @@ import { AuthRequest } from "../middleware/auth.middleware.js";
 import EventModel from "../models/event.model.js";
 import RegistrationModel from "../models/registration.model.js";
 import { uploadImageToCloudinary } from "../services/cloudinary.service.js";
+import { AIGenerationFactory } from "../services/ai/AIGenerationFactory.js";
 import {
   createEventSchema,
   updateEventSchema,
@@ -131,7 +132,7 @@ export class EventsController {
       if (data.scheduledAt) {
         data.scheduledAt = new Date(data.scheduledAt);
       } else if (data.scheduledAt === null) {
-        data.scheduledAt = undefined; // Or null if you want to explicitly unset
+        data.scheduledAt = undefined;
       }
 
       const updated = await EventModel.findByIdAndUpdate(id, data, {
@@ -220,7 +221,6 @@ export class EventsController {
 
       const registration = await RegistrationModel.create({ userId, eventId });
 
-      // Atomically increment registrationsCount
       await EventModel.findByIdAndUpdate(eventId, {
         $inc: { registrationsCount: 1 },
       });
@@ -263,7 +263,6 @@ export class EventsController {
         });
       }
 
-      // Atomically decrement registrationsCount
       await EventModel.findByIdAndUpdate(eventId, {
         $inc: { registrationsCount: -1 },
       });
@@ -329,6 +328,74 @@ export class EventsController {
       return res
         .status(500)
         .json({ success: false, message: error.message || "Server error" });
+    }
+  }
+
+  static async generatePoster(req: AuthRequest, res: Response) {
+    try {
+      const admin = req.user;
+      if (!admin || admin.role !== "admin") {
+        return res.status(403).json({
+          success: false,
+          message: "Only admins can generate posters",
+        });
+      }
+
+      const { prompt, colors, eventDetails, style, provider } = req.body;
+
+      if (!prompt) {
+        return res.status(400).json({
+          success: false,
+          message: "Prompt is required for generation",
+        });
+      }
+
+      let referenceImage = undefined;
+      if (req.file) {
+        const uploadResult = await uploadImageToCloudinary(req.file.buffer, {
+          folder: "posters/references",
+        });
+        referenceImage = uploadResult.secure_url;
+      }
+
+      let parsedColors;
+      try {
+        parsedColors = colors ? JSON.parse(colors) : undefined;
+      } catch (e) {
+        parsedColors = undefined;
+      }
+
+      let parsedEventDetails;
+      try {
+        parsedEventDetails = eventDetails
+          ? JSON.parse(eventDetails)
+          : undefined;
+      } catch (e) {
+        parsedEventDetails = undefined;
+      }
+
+      const aiProvider = AIGenerationFactory.getProvider(
+        provider as "openai" | "replicate",
+      );
+
+      const imageUrl = await aiProvider.generatePoster({
+        prompt,
+        referenceImage,
+        colors: parsedColors,
+        eventDetails: parsedEventDetails,
+        style,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Poster generated successfully",
+        imageUrl,
+      });
+    } catch (error: any) {
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Failed to generate poster",
+      });
     }
   }
 }
