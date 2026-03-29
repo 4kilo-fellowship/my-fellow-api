@@ -341,7 +341,7 @@ export class EventsController {
         });
       }
 
-      const { prompt, colors, eventDetails, style, provider } = req.body;
+      const { prompt, colors, eventDetails, style } = req.body;
 
       if (!prompt) {
         return res.status(400).json({
@@ -350,12 +350,14 @@ export class EventsController {
         });
       }
 
-      let referenceImage = undefined;
-      if (req.file) {
-        const uploadResult = await uploadImageToCloudinary(req.file.buffer, {
-          folder: "posters/references",
-        });
-        referenceImage = uploadResult.secure_url;
+      let referenceImages: { mimeType: string; data: string }[] = [];
+      const files = req.files as Express.Multer.File[];
+      
+      if (files && files.length > 0) {
+        referenceImages = files.slice(0, 3).map((file) => ({
+          mimeType: file.mimetype,
+          data: file.buffer.toString("base64"),
+        }));
       }
 
       let parsedColors;
@@ -374,13 +376,11 @@ export class EventsController {
         parsedEventDetails = undefined;
       }
 
-      const aiProvider = AIGenerationFactory.getProvider(
-        provider as "openai" | "replicate",
-      );
+      const aiProvider = AIGenerationFactory.getProvider();
 
       const imageUrl = await aiProvider.generatePoster({
         prompt,
-        referenceImage,
+        referenceImages,
         colors: parsedColors,
         eventDetails: parsedEventDetails,
         style,

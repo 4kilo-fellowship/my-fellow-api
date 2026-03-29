@@ -1,6 +1,6 @@
 import { Router } from "express";
 import EventsController from "../controllers/events.controller.js";
-import { uploadSingle } from "../middleware/upload.middleware.js";
+import { uploadSingle, uploadPosterImages } from "../middleware/upload.middleware.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.middleware.js";
 
 const router = Router();
@@ -26,7 +26,7 @@ router.post(
   "/generate-poster",
   requireAuth,
   requireAdmin,
-  uploadSingle,
+  uploadPosterImages,
   EventsController.generatePoster,
 );
 router.post("/register", requireAuth, EventsController.registerForEvent);

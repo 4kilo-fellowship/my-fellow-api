@@ -11,6 +11,7 @@ export interface EventMetadata {
 export interface PosterGenerationOptions {
   prompt: string;
   referenceImage?: string;
+  referenceImages?: { mimeType: string; data: string }[];
   colors?: {
     primary?: string;
     secondary?: string;

@@ -61,6 +61,8 @@ export const upload = multer({
 export const uploadSingle = upload.single("image");
 export const uploadMultiple = upload.array("images", 10);
 
+export const uploadPosterImages = upload.any();
+
 export const devotionUpload = multer({
   storage,
   fileFilter: devotionMediaFilter,

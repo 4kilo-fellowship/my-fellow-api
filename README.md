@@ -129,6 +129,7 @@ Base URL: `/api/events`
 | GET    | `/registrations`                | Token + Admin | List all generic event registrations.                                   |
 | GET    | `/registrations/:eventId`       | Token + Admin | Find all registrations for a particular event ID.                       |
 | GET    | `/registration-status/:eventId` | Token         | Check if the authenticated user has registered for the specified event. |
+| POST   | `/generate-poster`              | Token + Admin | Generate an AI poster using Weavy.ai integration.                       |
 
 ### Devotions
 
