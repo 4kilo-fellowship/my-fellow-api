@@ -3,7 +3,7 @@ import { AuthRequest } from "../middleware/auth.middleware.js";
 import EventModel from "../models/event.model.js";
 import RegistrationModel from "../models/registration.model.js";
 import { uploadImageToCloudinary } from "../services/cloudinary.service.js";
-import { AIGenerationFactory } from "../services/ai/AIGenerationFactory.js";
+import { GeminiService } from "../services/ai/gemini.service.js";
 import {
   createEventSchema,
   updateEventSchema,
@@ -352,7 +352,7 @@ export class EventsController {
 
       let referenceImages: { mimeType: string; data: string }[] = [];
       const files = req.files as Express.Multer.File[];
-      
+
       if (files && files.length > 0) {
         referenceImages = files.slice(0, 3).map((file) => ({
           mimeType: file.mimetype,
@@ -376,9 +376,9 @@ export class EventsController {
         parsedEventDetails = undefined;
       }
 
-      const aiProvider = AIGenerationFactory.getProvider();
+      const geminiService = new GeminiService();
 
-      const imageUrl = await aiProvider.generatePoster({
+      const imageUrl = await geminiService.generatePoster({
         prompt,
         referenceImages,
         colors: parsedColors,
