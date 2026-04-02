@@ -30,7 +30,7 @@ export class GeminiProvider implements AIGenerationProvider {
       }\n`;
     if (options.eventDetails) {
       textPrompt += `Conceptual elements to include based on these details: ${JSON.stringify(
-        options.eventDetails
+        options.eventDetails,
       )}\n`;
     }
 
@@ -61,14 +61,16 @@ export class GeminiProvider implements AIGenerationProvider {
       superPrompt = options.prompt;
     }
 
-    // Use the optimized Imagen 3 endpoint for AI Studio keys
-    const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${this.apiKey}`;
+    // Use the optimized Imagen 4 endpoint for AI Studio keys
+    const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${this.apiKey}`;
 
     const body = {
       instances: [{ prompt: superPrompt.substring(0, 3900) }],
       parameters: {
         sampleCount: 1,
-        aspectRatio: options.style?.toLowerCase().includes("portrait") ? "3:4" : "1:1",
+        aspectRatio: options.style?.toLowerCase().includes("portrait")
+          ? "3:4"
+          : "1:1",
         outputMimeType: "image/jpeg",
       },
     };
@@ -81,15 +83,22 @@ export class GeminiProvider implements AIGenerationProvider {
 
     if (!imagenRes.ok) {
       const errorData = await imagenRes.json().catch(() => ({}));
-      console.error("[GeminiProvider] Imagen 3 Error:", JSON.stringify(errorData));
-      throw new Error(`Gemini Image Gen failed: ${imagenRes.status} ${imagenRes.statusText}`);
+      console.error(
+        "[GeminiProvider] Imagen 3 Error:",
+        JSON.stringify(errorData),
+      );
+      throw new Error(
+        `Gemini Image Gen failed: ${imagenRes.status} ${imagenRes.statusText}`,
+      );
     }
 
     const data = (await imagenRes.json()) as any;
     const base64Image = data?.predictions?.[0]?.bytesBase64Encoded;
 
     if (!base64Image) {
-      throw new Error("Gemini returned no image data. The prompt might have been blocked or the model is overloaded.");
+      throw new Error(
+        "Gemini returned no image data. The prompt might have been blocked or the model is overloaded.",
+      );
     }
 
     const imageBuffer = Buffer.from(base64Image, "base64");
