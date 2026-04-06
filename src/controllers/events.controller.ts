@@ -3,7 +3,7 @@ import { AuthRequest } from "../middleware/auth.middleware.js";
 import EventModel from "../models/event.model.js";
 import RegistrationModel from "../models/registration.model.js";
 import { uploadImageToCloudinary } from "../services/cloudinary.service.js";
-import { GeminiService } from "../services/ai/gemini.service.js";
+import { AIService } from "../services/ai/ai.service.js";
 import {
   createEventSchema,
   updateEventSchema,
@@ -376,9 +376,9 @@ export class EventsController {
         parsedEventDetails = undefined;
       }
 
-      const geminiService = new GeminiService();
+      const aiService = new AIService();
 
-      const imageUrl = await geminiService.generatePoster({
+      const imageUrl = await aiService.generatePoster({
         prompt,
         referenceImages,
         colors: parsedColors,
