@@ -22,10 +22,16 @@ export class TeamController {
 
   private static ensureImageUrlForValidator(
     data: any,
-    file?: Express.Multer.File,
+    files?: { [fieldname: string]: Express.Multer.File[] },
   ): any {
-    if (file && (!data.imageUrl || data.imageUrl === "")) {
+    if (files?.["image"]?.[0] && (!data.imageUrl || data.imageUrl === "")) {
       data.imageUrl = "https://placeholder.com/image.jpg";
+    }
+    if (files?.["leaderImage"]?.[0]) {
+      if (!data.leader) data.leader = {};
+      if (!data.leader.imageUrl || data.leader.imageUrl === "") {
+        data.leader.imageUrl = "https://placeholder.com/leader.jpg";
+      }
     }
     return data;
   }
@@ -33,7 +39,8 @@ export class TeamController {
   static async createTeam(req: Request, res: Response) {
     try {
       let data = TeamController.parseMultipartBody(req.body);
-      data = TeamController.ensureImageUrlForValidator(data, req.file);
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      data = TeamController.ensureImageUrlForValidator(data, files);
 
       const parseResult = teamBaseSchema.safeParse(data);
 
@@ -45,7 +52,7 @@ export class TeamController {
         });
       }
 
-      const team = await TeamService.create(parseResult.data, req.file);
+      const team = await TeamService.create(parseResult.data, files);
 
       return res.status(201).json({
         success: true,
@@ -109,7 +116,8 @@ export class TeamController {
     try {
       let data = TeamController.parseMultipartBody(req.body);
 
-      data = TeamController.ensureImageUrlForValidator(data, req.file);
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      data = TeamController.ensureImageUrlForValidator(data, files);
 
       const parseResult = teamBaseSchema.partial().safeParse(data);
 
@@ -123,11 +131,7 @@ export class TeamController {
 
       const { id } = req.params;
 
-      const updatedTeam = await TeamService.update(
-        id,
-        parseResult.data,
-        req.file,
-      );
+      const updatedTeam = await TeamService.update(id, parseResult.data, files);
 
       if (!updatedTeam) {
         return res.status(404).json({

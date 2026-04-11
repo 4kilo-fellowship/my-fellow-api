@@ -3,11 +3,20 @@ import { Team } from "../validators/team.validator.js";
 import { uploadImageToCloudinary } from "./cloudinary.service.js";
 
 export class TeamService {
-  static async create(data: Team, file?: Express.Multer.File): Promise<Team> {
+  static async create(
+    data: Team,
+    files?: { [fieldname: string]: Express.Multer.File[] },
+  ): Promise<Team> {
     let imageUrl: string = data.imageUrl;
-    if (file && file.buffer) {
+    let leaderImageUrl: string =
+      data.leader?.imageUrl || "https://placeholder.com/leader.jpg";
+
+    const imageFile = files?.["image"]?.[0];
+    const leaderImageFile = files?.["leaderImage"]?.[0];
+
+    if (imageFile && imageFile.buffer) {
       try {
-        const uploadResult = await uploadImageToCloudinary(file.buffer, {
+        const uploadResult = await uploadImageToCloudinary(imageFile.buffer, {
           folder: "teams",
           transformation: {
             quality: "auto",
@@ -22,9 +31,33 @@ export class TeamService {
       }
     }
 
+    if (leaderImageFile && leaderImageFile.buffer) {
+      try {
+        const uploadResult = await uploadImageToCloudinary(
+          leaderImageFile.buffer,
+          {
+            folder: "teams/leaders",
+            transformation: {
+              quality: "auto",
+              fetch_format: "auto",
+            },
+          },
+        );
+        leaderImageUrl = uploadResult.secure_url;
+      } catch (error: any) {
+        throw new Error(
+          `Failed to upload leader image: ${error.message || "Unknown upload error"}`,
+        );
+      }
+    }
+
     const team = await TeamModel.create({
       ...data,
       imageUrl,
+      leader: {
+        ...data.leader,
+        imageUrl: leaderImageUrl,
+      },
     });
 
     return team as unknown as Team;
@@ -55,7 +88,7 @@ export class TeamService {
   static async update(
     id: string,
     data: Partial<Team>,
-    file?: Express.Multer.File,
+    files?: { [fieldname: string]: Express.Multer.File[] },
   ): Promise<Team | null> {
     const existingTeam = await TeamModel.findOne({ _id: id, isDeleted: false });
     if (!existingTeam) {
@@ -63,10 +96,14 @@ export class TeamService {
     }
 
     let imageUrl: string | undefined = data.imageUrl;
+    let leaderImageUrl: string | undefined = data.leader?.imageUrl;
 
-    if (file && file.buffer) {
+    const imageFile = files?.["image"]?.[0];
+    const leaderImageFile = files?.["leaderImage"]?.[0];
+
+    if (imageFile && imageFile.buffer) {
       try {
-        const uploadResult = await uploadImageToCloudinary(file.buffer, {
+        const uploadResult = await uploadImageToCloudinary(imageFile.buffer, {
           folder: "teams",
           transformation: {
             quality: "auto",
@@ -81,10 +118,35 @@ export class TeamService {
       }
     }
 
-    const updatePayload: Partial<Team> = { ...data };
+    if (leaderImageFile && leaderImageFile.buffer) {
+      try {
+        const uploadResult = await uploadImageToCloudinary(
+          leaderImageFile.buffer,
+          {
+            folder: "teams/leaders",
+            transformation: {
+              quality: "auto",
+              fetch_format: "auto",
+            },
+          },
+        );
+        leaderImageUrl = uploadResult.secure_url;
+      } catch (error: any) {
+        throw new Error(
+          `Failed to upload leader image: ${error.message || "Unknown upload error"}`,
+        );
+      }
+    }
+
+    const updatePayload: any = { ...data };
 
     if (imageUrl) {
       updatePayload.imageUrl = imageUrl;
+    }
+
+    if (leaderImageUrl) {
+      if (!updatePayload.leader) updatePayload.leader = {};
+      updatePayload.leader.imageUrl = leaderImageUrl;
     }
 
     const updatedTeam = await TeamModel.findByIdAndUpdate(

@@ -4,6 +4,10 @@ import { UserModel } from "../models/user.model.js";
 import EventModel from "../models/event.model.js";
 import RegistrationModel from "../models/registration.model.js";
 import { TransactionModel } from "../models/transaction.model.js";
+import ProgramModel from "../models/program.model.js";
+import LocationModel from "../models/location.model.js";
+import LeaderModel from "../models/leader.model.js";
+import TeamModel from "../models/team.model.js";
 
 export class AdminController {
   static async getAllUsers(req: Request, res: Response) {
@@ -269,13 +273,25 @@ export class AdminController {
 
   static async getStats(req: Request, res: Response) {
     try {
-      const [userCount, eventCount, registrationCount, transactionCount] =
-        await Promise.all([
-          UserModel.countDocuments(),
-          EventModel.countDocuments(),
-          RegistrationModel.countDocuments(),
-          TransactionModel.countDocuments(),
-        ]);
+      const [
+        userCount,
+        eventCount,
+        registrationCount,
+        transactionCount,
+        programCount,
+        locationCount,
+        leaderCount,
+        teamCount,
+      ] = await Promise.all([
+        UserModel.countDocuments(),
+        EventModel.countDocuments(),
+        RegistrationModel.countDocuments(),
+        TransactionModel.countDocuments(),
+        ProgramModel.countDocuments(),
+        LocationModel.countDocuments(),
+        LeaderModel.countDocuments(),
+        TeamModel.countDocuments(),
+      ]);
 
       const [totalRevenueResult] = await TransactionModel.aggregate([
         { $match: { status: "pending" } },
@@ -289,6 +305,10 @@ export class AdminController {
           events: eventCount,
           registrations: registrationCount,
           transactions: transactionCount,
+          programs: programCount,
+          locations: locationCount,
+          leaders: leaderCount,
+          teams: teamCount,
           totalRevenue: totalRevenueResult ? totalRevenueResult.total : 0,
         },
       });
