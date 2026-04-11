@@ -1,19 +1,20 @@
-import express, { Request, Response, NextFunction } from "express";
-import authRoutes from "./routes/auth.routes.js";
-import uploadRoutes from "./routes/upload.routes.js";
-import eventsRoutes from "./routes/events.routes.js";
-import paymentRoutes from "./routes/payment.routes.js";
-import adminRoutes from "./routes/admin.routes.js";
-import teamRoutes from "./routes/team.routes.js";
-import joinRequestRoutes from "./routes/joinRequest.routes.js";
-import programRoutes from "./routes/program.routes.js";
-import locationRoutes from "./routes/location.routes.js";
-import leaderRoutes from "./routes/leader.routes.js";
-import devotionRoutes from "./routes/devotion.routes.js";
-import marketplaceRoutes from "./routes/marketplace.routes.js";
+import cors from "cors";
+import express, { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import cors from "cors";
+import adminRoutes from "./routes/admin.routes.js";
+import authRoutes from "./routes/auth.routes.js";
+import devotionRoutes from "./routes/devotion.routes.js";
+import eventsRoutes from "./routes/events.routes.js";
+import joinRequestRoutes from "./routes/joinRequest.routes.js";
+import leaderRoutes from "./routes/leader.routes.js";
+import locationRoutes from "./routes/location.routes.js";
+import marketplaceRoutes from "./routes/marketplace.routes.js";
+import paymentRoutes from "./routes/payment.routes.js";
+import programRoutes from "./routes/program.routes.js";
+import supportRoutes from "./routes/support.routes.js";
+import teamRoutes from "./routes/team.routes.js";
+import uploadRoutes from "./routes/upload.routes.js";
 import job from "./utils/cron.js";
 
 const app = express();
@@ -111,6 +112,7 @@ app.use("/api/locations", locationLimiter, locationRoutes);
 app.use("/api/leaders", leaderLimiter, leaderRoutes);
 app.use("/api/devotions", devotionLimiter, devotionRoutes);
 app.use("/api/marketplace", marketplaceLimiter, marketplaceRoutes);
+app.use("/api/support", supportRoutes);
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 

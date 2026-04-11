@@ -1,9 +1,7 @@
 import { fal } from "@fal-ai/client";
 import { uploadImageToCloudinary } from "../cloudinary.service.js";
 
-fal.config({
-  credentials: process.env.FAL_KEY || "",
-});
+// fal.config is now handled inside the class method to ensure it uses the latest process.env values.
 
 export interface EventMetadata {
   title?: string;
@@ -28,6 +26,17 @@ export interface PosterGenerationOptions {
 
 export class AIService {
   async generatePoster(options: PosterGenerationOptions): Promise<string> {
+    const falKey = process.env.FAL_KEY;
+    if (!falKey) {
+      throw new Error(
+        "FAL_KEY is missing in environment variables. Please check your .env file.",
+      );
+    }
+
+    fal.config({
+      credentials: falKey,
+    });
+
     let textPrompt = `Create a visually stunning, high-quality event poster.\nTheme: ${options.prompt}\n`;
 
     if (options.style) textPrompt += `Artistic Style: ${options.style}\n`;
@@ -91,7 +100,18 @@ export class AIService {
 
       return uploadResult.secure_url;
     } catch (error: any) {
-      console.error("[Fal.ai] Poster generation error:", error);
+      console.error(
+        "[Fal.ai] Full error object:",
+        JSON.stringify(error, null, 2),
+      );
+      console.error("[Fal.ai] Poster generation error message:", error.message);
+
+      if (error.message?.includes("Forbidden")) {
+        throw new Error(
+          "Poster generation failed: Forbidden. This usually means your FAL_KEY is invalid or you have run out of credits. Please check your Fal.ai dashboard.",
+        );
+      }
+
       throw new Error(`Poster generation failed: ${error.message}`);
     }
   }
