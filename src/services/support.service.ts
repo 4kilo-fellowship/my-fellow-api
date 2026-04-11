@@ -4,7 +4,7 @@ import { uploadImageToCloudinary } from "./cloudinary.service.js";
 export class SupportService {
   static async createTicket(
     userId: string,
-    message: string,
+    message?: string,
     file?: Express.Multer.File,
   ) {
     let imageUrl: string | undefined;

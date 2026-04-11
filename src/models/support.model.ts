@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from "mongoose";
 
 export interface ISupportTicket extends Document {
   userId: string;
-  message: string;
+  message?: string;
   imageUrl?: string;
   status: "pending" | "resolved" | "in-progress";
   createdAt: Date;
@@ -12,7 +12,7 @@ export interface ISupportTicket extends Document {
 const SupportTicketSchema: Schema = new Schema(
   {
     userId: { type: String, required: true },
-    message: { type: String, required: true },
+    message: { type: String, default: "" },
     imageUrl: { type: String },
     status: {
       type: String,
