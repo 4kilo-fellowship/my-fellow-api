@@ -55,6 +55,7 @@ export class AuthService {
     });
 
     await user.save();
+    await user.populate("team", "name");
     const token = signJwt({
       sub: user._id,
       phoneNumber: user.phoneNumber,
@@ -79,7 +80,10 @@ export class AuthService {
 
   static async login(dto: SignInDTO) {
     const phone = AuthService.normalizePhone(dto.phoneNumber);
-    const user = await UserModel.findOne({ phoneNumber: phone });
+    const user = await UserModel.findOne({ phoneNumber: phone }).populate(
+      "team",
+      "name",
+    );
     if (!user) {
       throw new Error("Invalid credentials");
     }
@@ -112,7 +116,10 @@ export class AuthService {
 
   static async lookupByPhoneNumber(phoneNumber: string) {
     const phone = AuthService.normalizePhone(phoneNumber);
-    const user = await UserModel.findOne({ phoneNumber: phone });
+    const user = await UserModel.findOne({ phoneNumber: phone }).populate(
+      "team",
+      "name",
+    );
     if (!user) {
       throw new Error("User not found");
     }
@@ -140,7 +147,7 @@ export class AuthService {
   }
 
   static async findById(id: string): Promise<IUserDocument | null> {
-    return UserModel.findById(id).select("-password");
+    return UserModel.findById(id).select("-password").populate("team", "name");
   }
 
   static async updateProfile(
@@ -179,6 +186,7 @@ export class AuthService {
     });
 
     await user.save();
+    await user.populate("team", "name");
 
     const safeUser = {
       id: user._id,

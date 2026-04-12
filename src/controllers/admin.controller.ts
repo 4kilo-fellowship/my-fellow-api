@@ -1,13 +1,13 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
-import { UserModel } from "../models/user.model.js";
 import EventModel from "../models/event.model.js";
-import RegistrationModel from "../models/registration.model.js";
-import { TransactionModel } from "../models/transaction.model.js";
-import ProgramModel from "../models/program.model.js";
-import LocationModel from "../models/location.model.js";
 import LeaderModel from "../models/leader.model.js";
+import LocationModel from "../models/location.model.js";
+import ProgramModel from "../models/program.model.js";
+import RegistrationModel from "../models/registration.model.js";
 import TeamModel from "../models/team.model.js";
+import { TransactionModel } from "../models/transaction.model.js";
+import { UserModel } from "../models/user.model.js";
 
 export class AdminController {
   static async getAllUsers(req: Request, res: Response) {
@@ -40,6 +40,7 @@ export class AdminController {
           .sort({ createdAt: -1 })
           .skip(skip)
           .limit(limit)
+          .populate("team", "name")
           .lean(),
         UserModel.countDocuments(query),
       ]);

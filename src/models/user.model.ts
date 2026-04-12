@@ -29,7 +29,7 @@ const UserSchema = new Schema<IUserDocument>(
       trim: true,
       index: true,
     },
-    team: { type: String, default: null },
+    team: { type: Schema.Types.ObjectId, ref: "Team", default: null },
     department: { type: String, default: null },
     yearOfStudy: { type: String, default: null },
     telegramUserName: { type: String, default: null },
