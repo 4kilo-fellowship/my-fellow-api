@@ -1,5 +1,5 @@
-import mongoose, { Schema, Document, Model } from "mongoose";
 import bcrypt from "bcrypt";
+import mongoose, { Document, Model, Schema } from "mongoose";
 
 export interface IUser {
   fullName: string;
@@ -9,7 +9,6 @@ export interface IUser {
   yearOfStudy?: string | null;
   telegramUserName?: string | null;
   profileImage?: string | null;
-  pastTeam?: string | null;
   password: string;
   role: "admin" | "user";
   createdAt?: Date;
@@ -35,7 +34,6 @@ const UserSchema = new Schema<IUserDocument>(
     yearOfStudy: { type: String, default: null },
     telegramUserName: { type: String, default: null },
     profileImage: { type: String, default: null },
-    pastTeam: { type: String, default: null },
     password: { type: String, required: true, minlength: 6 },
     role: { type: String, enum: ["admin", "user"], default: "user" },
   },

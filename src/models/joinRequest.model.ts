@@ -6,7 +6,6 @@ export interface IJoinRequest extends Document {
   fullName: string;
   phoneNumber: string;
   profileImage?: string;
-  pastTeam?: string;
   department: string;
   year: string;
   telegramHandle: string;
@@ -23,7 +22,6 @@ const JoinRequestSchema = new Schema<IJoinRequest>(
     fullName: { type: String, required: true },
     phoneNumber: { type: String, required: true },
     profileImage: { type: String },
-    pastTeam: { type: String },
     department: { type: String, required: true },
     year: { type: String, required: true },
     telegramHandle: { type: String, required: true },

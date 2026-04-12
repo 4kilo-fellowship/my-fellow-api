@@ -1,11 +1,11 @@
 import { Response } from "express";
+import { AuthRequest } from "../middleware/auth.middleware.js";
 import { AuthService } from "../services/auth.service.js";
 import {
-  signUpSchema,
   signInSchema,
+  signUpSchema,
   updateProfileSchema,
 } from "../validators/auth.validator.js";
-import { AuthRequest } from "../middleware/auth.middleware.js";
 
 export class AuthController {
   static async register(req: AuthRequest, res: Response) {
@@ -84,7 +84,6 @@ export class AuthController {
         yearOfStudy: user.yearOfStudy,
         telegramUserName: user.telegramUserName,
         profileImage: user.profileImage,
-        pastTeam: user.pastTeam,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       };

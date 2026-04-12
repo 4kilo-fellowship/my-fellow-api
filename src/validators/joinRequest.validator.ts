@@ -1,5 +1,5 @@
-import { z } from "zod";
 import mongoose from "mongoose";
+import { z } from "zod";
 
 const objectIdSchema = z
   .string()
@@ -13,7 +13,6 @@ export const createJoinRequestSchema = z.object({
     fullName: z.string().min(2).max(100),
     phoneNumber: z.string().min(10).max(15),
     profileImage: z.string().url().optional(),
-    pastTeam: z.string().max(100).optional(),
     department: z.string().min(2).max(100),
     year: z.string().min(1).max(20),
     telegramHandle: z.string().min(2).max(50),

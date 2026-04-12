@@ -8,7 +8,6 @@ export const signUpSchema = z
     department: z.string().optional().nullable(),
     yearOfStudy: z.string().optional().nullable(),
     telegramUserName: z.string().optional().nullable(),
-    pastTeam: z.string().optional().nullable(),
     password: z.string().min(6),
     confirmPassword: z.string().min(6),
   })
@@ -27,5 +26,4 @@ export const updateProfileSchema = z.object({
   department: z.string().optional().nullable(),
   yearOfStudy: z.string().optional().nullable(),
   telegramUserName: z.string().optional().nullable(),
-  pastTeam: z.string().optional().nullable(),
 });

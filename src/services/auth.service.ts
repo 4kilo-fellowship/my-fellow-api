@@ -1,5 +1,5 @@
-import { UserModel, IUserDocument } from "../models/user.model.js";
-import { SignUpDTO, SignInDTO } from "../types/types.js";
+import { IUserDocument, UserModel } from "../models/user.model.js";
+import { SignInDTO, SignUpDTO } from "../types/types.js";
 import { signJwt } from "../utils/jwt.js";
 import { uploadImageToCloudinary } from "./cloudinary.service.js";
 
@@ -49,7 +49,6 @@ export class AuthService {
       yearOfStudy: dto.yearOfStudy ?? null,
       telegramUserName: dto.telegramUserName ?? null,
       profileImage: profileImageUrl,
-      pastTeam: dto.pastTeam ?? null,
       password: dto.password,
       role:
         dto.phoneNumber === process.env.ADMIN_PHONE_NUMBER ? "admin" : "user",
@@ -72,7 +71,6 @@ export class AuthService {
       yearOfStudy: user.yearOfStudy,
       telegramUserName: user.telegramUserName,
       profileImage: user.profileImage,
-      pastTeam: user.pastTeam,
       createdAt: user.createdAt,
     };
 
@@ -106,7 +104,6 @@ export class AuthService {
       yearOfStudy: user.yearOfStudy,
       telegramUserName: user.telegramUserName,
       profileImage: user.profileImage,
-      pastTeam: user.pastTeam,
       createdAt: user.createdAt,
     };
 
@@ -130,7 +127,6 @@ export class AuthService {
       yearOfStudy: user.yearOfStudy,
       telegramUserName: user.telegramUserName,
       profileImage: user.profileImage,
-      pastTeam: user.pastTeam,
       createdAt: user.createdAt,
     };
 
@@ -194,7 +190,6 @@ export class AuthService {
       yearOfStudy: user.yearOfStudy,
       telegramUserName: user.telegramUserName,
       profileImage: user.profileImage,
-      pastTeam: user.pastTeam,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

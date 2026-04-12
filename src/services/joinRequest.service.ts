@@ -1,7 +1,7 @@
-import JoinRequestModel from "../models/joinRequest.model.js";
-import { UserModel } from "../models/user.model.js";
-import TeamModel from "../models/team.model.js";
 import mongoose from "mongoose";
+import JoinRequestModel from "../models/joinRequest.model.js";
+import TeamModel from "../models/team.model.js";
+import { UserModel } from "../models/user.model.js";
 
 export class JoinRequestService {
   static async createRequest(data: {
@@ -10,7 +10,6 @@ export class JoinRequestService {
     fullName: string;
     phoneNumber: string;
     profileImage?: string;
-    pastTeam?: string;
     department: string;
     year: string;
     telegramHandle: string;
@@ -22,7 +21,6 @@ export class JoinRequestService {
       fullName,
       phoneNumber,
       profileImage,
-      pastTeam,
       department,
       year,
       telegramHandle,
@@ -58,7 +56,6 @@ export class JoinRequestService {
       fullName,
       phoneNumber,
       profileImage,
-      pastTeam,
       department,
       year,
       telegramHandle,
@@ -97,7 +94,6 @@ export class JoinRequestService {
             yearOfStudy: request.year,
             telegramUserName: request.telegramHandle,
             profileImage: request.profileImage,
-            pastTeam: request.pastTeam,
           },
           { session },
         );
