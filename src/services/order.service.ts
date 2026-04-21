@@ -1,11 +1,6 @@
 import { prisma } from "../utils/prisma.js";
-import pkg from "../generated/prisma/index.js";
-import type {
-  Prisma as PrismaTypes,
-  OrderStatus,
-} from "../generated/prisma/index.js";
-
-const { Prisma } = pkg;
+import { Prisma, OrderStatus } from "@prisma/client";
+import type { Prisma as PrismaTypes } from "@prisma/client";
 const { Decimal } = Prisma;
 type Decimal = PrismaTypes.Decimal;
 

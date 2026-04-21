@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware.js";
 import { OrderService } from "../services/order.service.js";
-import type { OrderStatus } from "../generated/prisma/index.js";
+import type { OrderStatus } from "@prisma/client";
 
 export class OrderController {
   static async create(req: AuthRequest, res: Response) {

@@ -1,8 +1,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-const generated = await import("../generated/prisma/index.js");
-const { PrismaClient } = generated;
+import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: InstanceType<typeof PrismaClient>;
