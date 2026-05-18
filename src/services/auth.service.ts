@@ -1,4 +1,6 @@
+import mongoose from "mongoose";
 import { IUserDocument, UserModel } from "../models/user.model.js";
+import TeamModel from "../models/team.model.js";
 import { SignInDTO, SignUpDTO } from "../types/types.js";
 import { signJwt } from "../utils/jwt.js";
 import { uploadImageToCloudinary } from "./cloudinary.service.js";
@@ -41,10 +43,40 @@ export class AuthService {
       }
     }
 
+    let resolvedTeamId: mongoose.Types.ObjectId | null = null;
+    if (dto.team) {
+      if (mongoose.Types.ObjectId.isValid(dto.team)) {
+        resolvedTeamId = new mongoose.Types.ObjectId(dto.team);
+      } else {
+        const teamObj = await TeamModel.findOne({
+          name: { $regex: new RegExp("^" + dto.team + "$", "i") },
+          isDeleted: false,
+        });
+        if (teamObj) {
+          resolvedTeamId = teamObj._id as mongoose.Types.ObjectId;
+        } else {
+          try {
+            const newTeam = await TeamModel.create({
+              name: dto.team,
+              description: `Default description for ${dto.team} team`,
+              leader: {
+                name: "TBD",
+                role: "Leader",
+              },
+            });
+            resolvedTeamId = newTeam._id as mongoose.Types.ObjectId;
+          } catch (e) {
+            console.error("Failed to create default team during register:", e);
+            resolvedTeamId = null;
+          }
+        }
+      }
+    }
+
     const user = new UserModel({
       fullName: dto.fullName,
       phoneNumber: dto.phoneNumber,
-      team: dto.team ?? null,
+      team: resolvedTeamId,
       department: dto.department ?? null,
       yearOfStudy: dto.yearOfStudy ?? null,
       telegramUserName: dto.telegramUserName ?? null,
