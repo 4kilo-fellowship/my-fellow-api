@@ -46,7 +46,21 @@ export class AuthService {
     let resolvedTeamId: mongoose.Types.ObjectId | null = null;
     if (dto.team) {
       if (mongoose.Types.ObjectId.isValid(dto.team)) {
-        resolvedTeamId = new mongoose.Types.ObjectId(dto.team);
+        // If the client supplied an ObjectId, make sure it actually exists
+        // and is not deleted before assigning it. Do not accept arbitrary
+        // ObjectIds which would create dangling references.
+        const existingById = await TeamModel.findOne({
+          _id: dto.team,
+          isDeleted: false,
+        });
+        if (existingById) {
+          resolvedTeamId = existingById._id as mongoose.Types.ObjectId;
+        } else {
+          console.info(
+            `Team id '${dto.team}' not found; will not assign team to user.`,
+          );
+          resolvedTeamId = null;
+        }
       } else {
         const teamObj = await TeamModel.findOne({
           name: { $regex: new RegExp("^" + dto.team + "$", "i") },
@@ -55,20 +69,14 @@ export class AuthService {
         if (teamObj) {
           resolvedTeamId = teamObj._id as mongoose.Types.ObjectId;
         } else {
-          try {
-            const newTeam = await TeamModel.create({
-              name: dto.team,
-              description: `Default description for ${dto.team} team`,
-              leader: {
-                name: "TBD",
-                role: "Leader",
-              },
-            });
-            resolvedTeamId = newTeam._id as mongoose.Types.ObjectId;
-          } catch (e) {
-            console.error("Failed to create default team during register:", e);
-            resolvedTeamId = null;
-          }
+          // Don't auto-create teams when a user supplies a team name that
+          // doesn't exist. Per product requirements, users should not cause
+          // new empty teams to be created during profile/registration.
+          // Leave team as null so they can join existing teams later.
+          console.info(
+            `Team '${dto.team}' not found; skipping automatic creation.`,
+          );
+          resolvedTeamId = null;
         }
       }
     }
