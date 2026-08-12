@@ -3,6 +3,7 @@ import { AuthRequest } from "../middleware/auth.middleware.js";
 import EventModel from "../models/event.model.js";
 import RegistrationModel from "../models/registration.model.js";
 import { uploadImageToCloudinary } from "../services/cloudinary.service.js";
+import { routeParam } from "../utils/routeParam.js";
 import { AIService } from "../services/ai/ai.service.js";
 import {
   createEventSchema,
@@ -91,7 +92,7 @@ export class EventsController {
 
   static async getEventById(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const event = await EventModel.findById(id).lean();
       if (!event) {
         return res
@@ -108,7 +109,7 @@ export class EventsController {
 
   static async updateEvent(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const parseResult = updateEventSchema.safeParse(req.body);
       if (!parseResult.success) {
         return res.status(400).json({
@@ -154,7 +155,7 @@ export class EventsController {
 
   static async deleteEvent(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const removed = await EventModel.findByIdAndUpdate(
         id,
         { isDeleted: true },
@@ -295,7 +296,7 @@ export class EventsController {
 
   static async getRegistrationsByEvent(req: Request, res: Response) {
     try {
-      const { eventId } = req.params;
+      const eventId = routeParam(req.params.eventId);
       const registrations = await RegistrationModel.find({ eventId })
         .populate("userId", "-password")
         .populate("eventId")
@@ -311,7 +312,7 @@ export class EventsController {
 
   static async checkRegistrationStatus(req: AuthRequest, res: Response) {
     try {
-      const { eventId } = req.params;
+      const eventId = routeParam(req.params.eventId);
       const userId = req.user!.sub;
 
       const registration = await RegistrationModel.findOne({

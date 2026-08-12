@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { LocationService } from "../services/location.service.js";
 import { locationBaseSchema } from "../validators/location.validator.js";
+import { routeParam } from "../utils/routeParam.js";
 
 export class LocationController {
   private static parseMultipartBody(body: any): any {
@@ -74,7 +75,7 @@ export class LocationController {
 
   static async getLocationById(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const location = await LocationService.getById(id);
 
       if (!location) {
@@ -110,7 +111,7 @@ export class LocationController {
         });
       }
 
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
 
       const updatedLocation = await LocationService.update(
         id,
@@ -140,7 +141,7 @@ export class LocationController {
 
   static async deleteLocation(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const success = await LocationService.delete(id);
 
       if (!success) {

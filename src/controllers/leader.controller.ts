@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { LeaderService } from "../services/leader.service.js";
 import { leaderBaseSchema } from "../validators/leader.validator.js";
+import { routeParam } from "../utils/routeParam.js";
 
 export class LeaderController {
   private static parseMultipartBody(body: any): any {
@@ -68,7 +69,7 @@ export class LeaderController {
 
   static async getLeaderById(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const leader = await LeaderService.getById(id);
 
       if (!leader) {
@@ -104,7 +105,7 @@ export class LeaderController {
         });
       }
 
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
 
       const updatedLeader = await LeaderService.update(
         id,
@@ -134,7 +135,7 @@ export class LeaderController {
 
   static async deleteLeader(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const success = await LeaderService.delete(id);
 
       if (!success) {

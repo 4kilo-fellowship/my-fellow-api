@@ -116,6 +116,8 @@ app.use("/api/support", supportRoutes);
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
-job.start();
+if (process.env.API_URL) {
+  job.start();
+}
 
 export default app;

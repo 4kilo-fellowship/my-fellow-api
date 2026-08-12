@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { ProgramService } from "../services/program.service.js";
 import { programBaseSchema } from "../validators/program.validator.js";
+import { routeParam } from "../utils/routeParam.js";
 
 export class ProgramController {
   private static parseMultipartBody(body: any): any {
@@ -77,7 +78,7 @@ export class ProgramController {
 
   static async getProgramById(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const program = await ProgramService.getById(id);
 
       if (!program) {
@@ -113,7 +114,7 @@ export class ProgramController {
         });
       }
 
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
 
       const updatedProgram = await ProgramService.update(
         id,
@@ -144,7 +145,7 @@ export class ProgramController {
 
   static async deleteProgram(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const success = await ProgramService.delete(id);
 
       if (!success) {

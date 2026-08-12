@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware.js";
 import { JoinRequestService } from "../services/joinRequest.service.js";
+import { routeParam } from "../utils/routeParam.js";
 
 export class JoinRequestController {
   static async create(req: AuthRequest, res: Response) {
@@ -50,7 +51,7 @@ export class JoinRequestController {
 
   static async updateStatus(req: AuthRequest, res: Response) {
     try {
-      const { requestId } = req.params;
+      const requestId = routeParam(req.params.requestId);
       const { status } = req.body;
 
       const request = await JoinRequestService.updateStatus(requestId, status);

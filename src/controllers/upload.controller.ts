@@ -3,6 +3,7 @@ import {
   uploadImageToCloudinary,
   deleteImageFromCloudinary,
 } from "../services/cloudinary.service.js";
+import { routeParam } from "../utils/routeParam.js";
 
 export class UploadController {
   /**
@@ -105,7 +106,7 @@ export class UploadController {
    */
   static async deleteImage(req: Request, res: Response) {
     try {
-      const { publicId } = req.params;
+      const publicId = routeParam(req.params.publicId);
 
       if (!publicId) {
         return res.status(400).json({

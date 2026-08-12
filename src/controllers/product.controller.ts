@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware.js";
 import { ProductService } from "../services/product.service.js";
 import { uploadImageToCloudinary } from "../services/cloudinary.service.js";
+import { routeParam } from "../utils/routeParam.js";
 
 export class ProductController {
   static async getAll(req: AuthRequest, res: Response) {
@@ -23,7 +24,8 @@ export class ProductController {
 
   static async getById(req: AuthRequest, res: Response) {
     try {
-      const product = await ProductService.getById(req.params.id);
+      const id = routeParam(req.params.id);
+      const product = await ProductService.getById(id);
       if (!product) {
         return res
           .status(404)
@@ -97,7 +99,8 @@ export class ProductController {
 
   static async update(req: AuthRequest, res: Response) {
     try {
-      const existing = await ProductService.getById(req.params.id);
+      const id = routeParam(req.params.id);
+      const existing = await ProductService.getById(id);
       if (!existing) {
         return res
           .status(404)
@@ -132,7 +135,7 @@ export class ProductController {
         finalImageUrls = [...baseImages, ...uploadedUrls];
       }
 
-      const product = await ProductService.update(req.params.id, {
+      const product = await ProductService.update(id, {
         title,
         shortDescription,
         price: price ? parseFloat(price as string) : undefined,
@@ -150,14 +153,15 @@ export class ProductController {
 
   static async remove(req: AuthRequest, res: Response) {
     try {
-      const existing = await ProductService.getById(req.params.id);
+      const id = routeParam(req.params.id);
+      const existing = await ProductService.getById(id);
       if (!existing) {
         return res
           .status(404)
           .json({ success: false, message: "Product not found" });
       }
 
-      await ProductService.remove(req.params.id);
+      await ProductService.remove(id);
       return res
         .status(200)
         .json({ success: true, message: "Product deleted" });

@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware.js";
 import { OrderService } from "../services/order.service.js";
 import type { OrderStatus } from "@prisma/client";
+import { routeParam } from "../utils/routeParam.js";
 
 export class OrderController {
   static async create(req: AuthRequest, res: Response) {
@@ -61,7 +62,8 @@ export class OrderController {
 
   static async getById(req: AuthRequest, res: Response) {
     try {
-      const order = await OrderService.getById(req.params.id);
+      const id = routeParam(req.params.id);
+      const order = await OrderService.getById(id);
       if (!order) {
         return res
           .status(404)
@@ -82,7 +84,8 @@ export class OrderController {
 
   static async updateStatus(req: AuthRequest, res: Response) {
     try {
-      const existing = await OrderService.getById(req.params.id);
+      const id = routeParam(req.params.id);
+      const existing = await OrderService.getById(id);
       if (!existing) {
         return res
           .status(404)
@@ -90,7 +93,7 @@ export class OrderController {
       }
 
       const { status } = req.body as { status: OrderStatus };
-      const order = await OrderService.updateStatus(req.params.id, status);
+      const order = await OrderService.updateStatus(id, status);
       return res.status(200).json({ success: true, data: order });
     } catch (error: any) {
       return res

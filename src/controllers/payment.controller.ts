@@ -8,6 +8,7 @@ import {
 import { paymentInitSchema } from "../validators/payment.validator.js";
 import { AuthRequest } from "../middleware/auth.middleware.js";
 import { UserModel } from "../models/user.model.js";
+import { routeParam } from "../utils/routeParam.js";
 
 export class PaymentController {
   static async initialize(req: AuthRequest, res: Response) {
@@ -100,7 +101,7 @@ export class PaymentController {
 
   static async verify(req: AuthRequest, res: Response) {
     try {
-      const { tx_ref } = req.params;
+      const tx_ref = routeParam(req.params.tx_ref);
 
       if (!tx_ref) {
         return res.status(400).json({

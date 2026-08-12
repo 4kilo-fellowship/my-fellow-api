@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { TeamService } from "../services/team.service.js";
 import { teamBaseSchema, Team } from "../validators/team.validator.js";
+import { routeParam } from "../utils/routeParam.js";
 
 export class TeamController {
   private static parseMultipartBody(body: any): any {
@@ -90,7 +91,7 @@ export class TeamController {
 
   static async getTeamById(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const team = await TeamService.getById(id);
 
       if (!team) {
@@ -129,7 +130,7 @@ export class TeamController {
         });
       }
 
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
 
       const updatedTeam = await TeamService.update(id, parseResult.data, files);
 
@@ -156,7 +157,7 @@ export class TeamController {
 
   static async deleteTeam(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const success = await TeamService.delete(id);
 
       if (!success) {

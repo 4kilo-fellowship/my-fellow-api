@@ -14,6 +14,7 @@ import {
   formatCount,
   DevotionQueryOptions,
 } from "../services/devotion.service.js";
+import { routeParam } from "../utils/routeParam.js";
 
 // ─── Helper: extract uploaded files from req.files ──────────────────
 function getUploadedFiles(req: Request) {
@@ -181,7 +182,7 @@ export class DevotionController {
   // ─── GET BY ID ────────────────────────────────────────────────────
   static async getDevotionById(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const devotion = await DevotionModel.findById(id).lean();
       if (!devotion) {
         return res
@@ -207,7 +208,7 @@ export class DevotionController {
   // ─── UPDATE ───────────────────────────────────────────────────────
   static async updateDevotion(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const existing = await DevotionModel.findById(id);
       if (!existing) {
         return res
@@ -270,7 +271,7 @@ export class DevotionController {
   // ─── DELETE (with Cloudinary cleanup) ─────────────────────────────
   static async deleteDevotion(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const devotion = await DevotionModel.findById(id);
       if (!devotion) {
         return res
@@ -296,7 +297,7 @@ export class DevotionController {
   // ─── INCREMENT VIEWS ──────────────────────────────────────────────
   static async recordView(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const updated = await incrementViews(id);
       if (!updated) {
         return res
@@ -320,7 +321,7 @@ export class DevotionController {
   // ─── LIKE / UNLIKE ────────────────────────────────────────────────
   static async likeDevotion(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = routeParam(req.params.id);
       const { action } = req.body; // "like" or "unlike"
       const isLike = action !== "unlike";
 
