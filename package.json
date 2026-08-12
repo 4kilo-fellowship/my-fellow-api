@@ -2,19 +2,19 @@
   "name": "my-fellow-api",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/server.js",
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=24.0.0 <25"
   },
   "scripts": {
     "dev": "nodemon --exec tsx src/server.ts",
-    "build": "npx prisma generate && tsc",
+    "build": "prisma generate && tsc",
     "start": "node dist/server.js",
     "test": "echo \"Warning: no test specified\" && exit 0",
-    "lint": "tsc --noEmit",
-    "db:generate": "npx prisma generate",
-    "db:push": "npx prisma db push",
-    "db:studio": "npx prisma studio"
+    "lint": "prisma generate && tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
   },
   "keywords": [],
   "author": "",
@@ -22,7 +22,6 @@
   "type": "module",
   "dependencies": {
     "@fal-ai/client": "^1.9.5",
-    "@google/generative-ai": "^0.24.1",
     "@prisma/adapter-pg": "^7.4.2",
     "@prisma/client": "^7.4.2",
     "bcrypt": "^6.0.0",
@@ -36,10 +35,8 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.1.1",
     "multer": "^2.0.2",
-    "openai": "^6.33.0",
     "pg": "^8.19.0",
     "prisma": "^7.4.2",
-    "replicate": "^1.4.0",
     "zod": "^4.3.4"
   },
   "devDependencies": {
@@ -48,7 +45,7 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.0.0",
-    "@types/node": "^25.0.3",
+    "@types/node": "^24.13.3",
     "@types/pg": "^8.18.0",
     "nodemon": "^3.1.11",
     "tsx": "^4.21.0",
