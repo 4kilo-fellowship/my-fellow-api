@@ -4,6 +4,7 @@ import TeamModel from "../models/team.model.js";
 import { SignInDTO, SignUpDTO } from "../types/types.js";
 import { signJwt } from "../utils/jwt.js";
 import { uploadImageToCloudinary } from "./cloudinary.service.js";
+import { OtpService } from "./otp.service.js";
 
 export class AuthService {
   static normalizePhone(phone: string): string {
@@ -17,7 +18,10 @@ export class AuthService {
   }
 
   static async register(dto: SignUpDTO, file?: Express.Multer.File) {
-    const existing = await UserModel.findOne({ phoneNumber: dto.phoneNumber });
+    const normalizedPhone = AuthService.normalizePhone(dto.phoneNumber);
+    OtpService.assertToken(dto.otpToken!, normalizedPhone, "signup");
+
+    const existing = await UserModel.findOne({ phoneNumber: normalizedPhone });
     if (existing) {
       throw new Error("Phone number already registered.");
     }
@@ -83,7 +87,7 @@ export class AuthService {
 
     const user = new UserModel({
       fullName: dto.fullName,
-      phoneNumber: dto.phoneNumber,
+      phoneNumber: normalizedPhone,
       team: resolvedTeamId,
       department: dto.department ?? null,
       yearOfStudy: dto.yearOfStudy ?? null,
@@ -91,7 +95,7 @@ export class AuthService {
       profileImage: profileImageUrl,
       password: dto.password,
       role:
-        dto.phoneNumber === process.env.ADMIN_PHONE_NUMBER ? "admin" : "user",
+        normalizedPhone === process.env.ADMIN_PHONE_NUMBER ? "admin" : "user",
     });
 
     await user.save();
@@ -243,5 +247,56 @@ export class AuthService {
     };
 
     return safeUser;
+  }
+
+  static async updatePhone(
+    userId: string,
+    dto: { phoneNumber: string; password: string; otpToken: string },
+  ) {
+    const normalizedPhone = AuthService.normalizePhone(dto.phoneNumber);
+    OtpService.assertToken(dto.otpToken, normalizedPhone, "update-phone");
+
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const valid = await user.comparePassword(dto.password);
+    if (!valid) {
+      throw new Error("Invalid password");
+    }
+
+    const existing = await UserModel.findOne({ phoneNumber: normalizedPhone });
+    if (existing && String(existing._id) !== String(user._id)) {
+      throw new Error("Phone number already registered.");
+    }
+
+    user.phoneNumber = normalizedPhone;
+    user.role =
+      normalizedPhone === process.env.ADMIN_PHONE_NUMBER ? "admin" : "user";
+    await user.save();
+    await user.populate("team", "name");
+
+    const token = signJwt({
+      sub: user._id,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+    });
+
+    const safeUser = {
+      id: user._id,
+      fullName: user.fullName,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      team: user.team,
+      department: user.department,
+      yearOfStudy: user.yearOfStudy,
+      telegramUserName: user.telegramUserName,
+      profileImage: user.profileImage,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    return { user: safeUser, token };
   }
 }

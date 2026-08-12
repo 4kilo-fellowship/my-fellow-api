@@ -10,11 +10,13 @@ export const signUpSchema = z
     telegramUserName: z.string().optional().nullable(),
     password: z.string().min(6),
     confirmPassword: z.string().min(6),
+    otpToken: z.string().min(1),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
+
 export const signInSchema = z.object({
   phoneNumber: z.string().min(10).max(13),
   password: z.string().min(6),
@@ -26,4 +28,10 @@ export const updateProfileSchema = z.object({
   department: z.string().optional().nullable(),
   yearOfStudy: z.string().optional().nullable(),
   telegramUserName: z.string().optional().nullable(),
+});
+
+export const updatePhoneSchema = z.object({
+  phoneNumber: z.string().min(8).max(13),
+  password: z.string().min(6),
+  otpToken: z.string().min(1),
 });
