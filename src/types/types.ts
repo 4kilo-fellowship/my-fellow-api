@@ -7,7 +7,6 @@ export interface SignUpDTO {
   yearOfStudy?: string | null;
   telegramUserName?: string | null;
   password: string;
-  confirmPassword?: string;
   otpToken: string;
 }
 
