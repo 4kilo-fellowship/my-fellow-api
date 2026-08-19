@@ -4,7 +4,6 @@ import TeamModel from "../models/team.model.js";
 import { SignInDTO, SignUpDTO } from "../types/types.js";
 import { signJwt } from "../utils/jwt.js";
 import { uploadImageToCloudinary } from "./cloudinary.service.js";
-import { OtpService } from "./otp.service.js";
 
 export class AuthService {
   static normalizePhone(phone: string): string {
@@ -19,8 +18,6 @@ export class AuthService {
 
   static async register(dto: SignUpDTO, file?: Express.Multer.File) {
     const normalizedPhone = AuthService.normalizePhone(dto.phoneNumber);
-    OtpService.assertToken(dto.otpToken!, normalizedPhone, "signup");
-
     const existing = await UserModel.findOne({ phoneNumber: normalizedPhone });
     if (existing) {
       throw new Error("Phone number already registered.");
@@ -251,11 +248,9 @@ export class AuthService {
 
   static async updatePhone(
     userId: string,
-    dto: { phoneNumber: string; password: string; otpToken: string },
+    dto: { phoneNumber: string; password: string },
   ) {
     const normalizedPhone = AuthService.normalizePhone(dto.phoneNumber);
-    OtpService.assertToken(dto.otpToken, normalizedPhone, "update-phone");
-
     const user = await UserModel.findById(userId);
     if (!user) {
       throw new Error("User not found");

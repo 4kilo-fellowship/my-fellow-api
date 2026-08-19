@@ -7,7 +7,6 @@ export interface SignUpDTO {
   yearOfStudy?: string | null;
   telegramUserName?: string | null;
   password: string;
-  otpToken: string;
 }
 
 // type safety for signing-in
@@ -20,7 +19,6 @@ export interface SignInDTO {
 export interface UpdatePhoneDTO {
   phoneNumber: string;
   password: string;
-  otpToken: string;
 }
 
 // chapa init types safety

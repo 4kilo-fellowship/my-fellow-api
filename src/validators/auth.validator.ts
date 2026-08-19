@@ -8,7 +8,6 @@ export const signUpSchema = z.object({
   yearOfStudy: z.string().optional().nullable(),
   telegramUserName: z.string().optional().nullable(),
   password: z.string().min(6),
-  otpToken: z.string().min(1),
 });
 
 export const signInSchema = z.object({
@@ -27,5 +26,4 @@ export const updateProfileSchema = z.object({
 export const updatePhoneSchema = z.object({
   phoneNumber: z.string().min(8).max(13),
   password: z.string().min(6),
-  otpToken: z.string().min(1),
 });
