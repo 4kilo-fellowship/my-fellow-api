@@ -16,7 +16,7 @@ export const auth = betterAuth({
   baseURL:
     process.env.API_URL ||
     (isProd
-      ? "https://my-fellow-api-6v2i.onrender.com"
+      ? "https://my-fellow-api.onrender.com"
       : "http://localhost:3000"),
   basePath: "/api/auth",
   user: {
