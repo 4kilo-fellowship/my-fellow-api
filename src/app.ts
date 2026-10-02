@@ -102,7 +102,7 @@ const marketplaceLimiter = rateLimit({
 });
 
 app.use("/api/auth", authLimiter, authRoutes);
-app.all("/api/auth/*", toNodeHandler(auth));
+app.all(["/api/auth", "/api/auth/*splat"], toNodeHandler(auth));
 
 
 app.use("/api/upload", uploadLimiter, uploadRoutes);
