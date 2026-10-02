@@ -27,3 +27,21 @@ export const updatePhoneSchema = z.object({
   phoneNumber: z.string().min(8).max(13),
   password: z.string().min(6),
 });
+
+export const requestOtpSchema = z.object({
+  phoneNumber: z.string().min(8).max(15),
+  purpose: z.enum(["signup", "reset-password"]).default("signup"),
+});
+
+export const verifyOtpSchema = z.object({
+  phoneNumber: z.string().min(8).max(15),
+  code: z.string().length(6),
+  purpose: z.enum(["signup", "reset-password"]).default("signup"),
+});
+
+export const resetPasswordSchema = z.object({
+  phoneNumber: z.string().min(8).max(15),
+  verificationToken: z.string().min(10),
+  newPassword: z.string().min(6),
+});
+

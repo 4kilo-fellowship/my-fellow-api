@@ -1,9 +1,11 @@
 import mongoose from "mongoose";
 import { IUserDocument, UserModel } from "../models/user.model.js";
 import TeamModel from "../models/team.model.js";
+import { OtpRecordModel } from "../models/otp.model.js";
 import { SignInDTO, SignUpDTO } from "../types/types.js";
 import { signJwt } from "../utils/jwt.js";
 import { uploadImageToCloudinary } from "./cloudinary.service.js";
+import { OtpService, toLocalPhone } from "./otp.service.js";
 
 export class AuthService {
   static normalizePhone(phone: string): string {
@@ -294,4 +296,163 @@ export class AuthService {
 
     return { user: safeUser, token };
   }
+
+  static async requestOtp(phoneNumber: string, purpose: "signup" | "reset-password" = "signup") {
+    const normalizedPhone = toLocalPhone(phoneNumber);
+
+    if (purpose === "reset-password") {
+      const existingUser = await UserModel.findOne({ phoneNumber: normalizedPhone });
+      if (!existingUser) {
+        throw new Error("No account found with this phone number.");
+      }
+    } else if (purpose === "signup") {
+      const existingUser = await UserModel.findOne({ phoneNumber: normalizedPhone });
+      if (existingUser) {
+        throw new Error("Phone number already registered.");
+      }
+    }
+
+    // Rate-limit: Check if an active OTP was requested recently (less than 60 seconds ago)
+    const recentRecord = await OtpRecordModel.findOne({
+      phoneNumber: normalizedPhone,
+      purpose,
+      createdAt: { $gt: new Date(Date.now() - 60 * 1000) },
+    });
+
+    if (recentRecord) {
+      throw new Error("Please wait 60 seconds before requesting another code.");
+    }
+
+    // Invalidate any prior active codes for this phone & purpose
+    await OtpRecordModel.deleteMany({
+      phoneNumber: normalizedPhone,
+      purpose,
+    });
+
+    const code = OtpService.generateSecureCode(6);
+    const codeHash = OtpService.hashSecret(code);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    await OtpRecordModel.create({
+      phoneNumber: normalizedPhone,
+      codeHash,
+      purpose,
+      expiresAt,
+    });
+
+    await OtpService.sendOtpSms(normalizedPhone, code, purpose);
+
+    return {
+      success: true,
+      message: "Verification code sent successfully",
+      phoneNumber: normalizedPhone,
+      expiresIn: 300,
+    };
+  }
+
+  static async verifyOtp(
+    phoneNumber: string,
+    code: string,
+    purpose: "signup" | "reset-password" = "signup"
+  ) {
+    const normalizedPhone = toLocalPhone(phoneNumber);
+
+    const record = await OtpRecordModel.findOne({
+      phoneNumber: normalizedPhone,
+      purpose,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!record) {
+      throw new Error("Verification code has expired or was not requested. Please request a new code.");
+    }
+
+    if (record.attempts >= record.maxAttempts) {
+      await OtpRecordModel.deleteOne({ _id: record._id });
+      throw new Error("Too many failed attempts. For your security, this code has been revoked.");
+    }
+
+    const inputHash = OtpService.hashSecret(code.trim());
+    const isValid = OtpService.timingSafeEqual(inputHash, record.codeHash);
+
+    if (!isValid) {
+      record.attempts += 1;
+      await record.save();
+      const remaining = record.maxAttempts - record.attempts;
+      throw new Error(
+        remaining > 0
+          ? `Invalid verification code. ${remaining} attempt(s) remaining.`
+          : "Invalid verification code. Maximum attempts exceeded."
+      );
+    }
+
+    // Generate a secure single-use verification token
+    const verificationToken = OtpService.generateSecureToken();
+    record.verifiedAt = new Date();
+    record.verificationToken = OtpService.hashSecret(verificationToken);
+    await record.save();
+
+    return {
+      success: true,
+      message: "Phone number verified successfully",
+      verificationToken,
+      phoneNumber: normalizedPhone,
+    };
+  }
+
+  static async resetPasswordWithOtp(
+    phoneNumber: string,
+    verificationToken: string,
+    newPassword: string
+  ) {
+    const normalizedPhone = toLocalPhone(phoneNumber);
+    const tokenHash = OtpService.hashSecret(verificationToken);
+
+    const record = await OtpRecordModel.findOne({
+      phoneNumber: normalizedPhone,
+      purpose: "reset-password",
+      verificationToken: tokenHash,
+      verifiedAt: { $ne: null },
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!record) {
+      throw new Error("Invalid or expired password reset session. Please request a new verification code.");
+    }
+
+    const user = await UserModel.findOne({ phoneNumber: normalizedPhone });
+    if (!user) {
+      throw new Error("User account not found.");
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    // Consume the token so it cannot be used again
+    await OtpRecordModel.deleteOne({ _id: record._id });
+
+    const token = signJwt({
+      sub: user._id,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+    });
+
+    return {
+      success: true,
+      message: "Password reset successfully. You are now logged in.",
+      token,
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        phoneNumber: user.phoneNumber,
+        role: user.role,
+        team: user.team,
+        department: user.department,
+        yearOfStudy: user.yearOfStudy,
+        telegramUserName: user.telegramUserName,
+        profileImage: user.profileImage,
+      },
+    };
+  }
 }
+

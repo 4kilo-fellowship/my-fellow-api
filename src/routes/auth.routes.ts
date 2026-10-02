@@ -23,5 +23,9 @@ router.patch(
   AuthController.updateProfile,
 );
 router.post("/update-phone", requireAuth, AuthController.updatePhone);
+router.post("/request-otp", AuthController.requestOtp);
+router.post("/verify-otp", AuthController.verifyOtp);
+router.post("/reset-password", AuthController.resetPassword);
 
 export default router;
+

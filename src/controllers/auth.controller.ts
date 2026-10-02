@@ -2,10 +2,13 @@ import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware.js";
 import { AuthService } from "../services/auth.service.js";
 import {
+  requestOtpSchema,
+  resetPasswordSchema,
   signInSchema,
   signUpSchema,
   updatePhoneSchema,
   updateProfileSchema,
+  verifyOtpSchema,
 } from "../validators/auth.validator.js";
 
 export class AuthController {
@@ -153,4 +156,61 @@ export class AuthController {
       });
     }
   }
+
+  static async requestOtp(req: AuthRequest, res: Response) {
+    try {
+      const parsed = requestOtpSchema.parse(req.body);
+      const result = await AuthService.requestOtp(parsed.phoneNumber, parsed.purpose);
+      return res.status(200).json(result);
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        return res.status(400).json({ success: false, errors: err.errors });
+      }
+      return res.status(400).json({
+        success: false,
+        message: err.message || "Failed to send verification code",
+      });
+    }
+  }
+
+  static async verifyOtp(req: AuthRequest, res: Response) {
+    try {
+      const parsed = verifyOtpSchema.parse(req.body);
+      const result = await AuthService.verifyOtp(
+        parsed.phoneNumber,
+        parsed.code,
+        parsed.purpose
+      );
+      return res.status(200).json(result);
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        return res.status(400).json({ success: false, errors: err.errors });
+      }
+      return res.status(400).json({
+        success: false,
+        message: err.message || "Failed to verify code",
+      });
+    }
+  }
+
+  static async resetPassword(req: AuthRequest, res: Response) {
+    try {
+      const parsed = resetPasswordSchema.parse(req.body);
+      const result = await AuthService.resetPasswordWithOtp(
+        parsed.phoneNumber,
+        parsed.verificationToken,
+        parsed.newPassword
+      );
+      return res.status(200).json(result);
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        return res.status(400).json({ success: false, errors: err.errors });
+      }
+      return res.status(400).json({
+        success: false,
+        message: err.message || "Failed to reset password",
+      });
+    }
+  }
 }
+
