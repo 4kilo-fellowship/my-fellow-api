@@ -2,6 +2,8 @@ import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import { toNodeHandler } from "better-auth/node";
+import { auth } from "./auth.js";
 import adminRoutes from "./routes/admin.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import devotionRoutes from "./routes/devotion.routes.js";
@@ -100,6 +102,8 @@ const marketplaceLimiter = rateLimit({
 });
 
 app.use("/api/auth", authLimiter, authRoutes);
+app.all("/api/auth/*", toNodeHandler(auth));
+
 
 app.use("/api/upload", uploadLimiter, uploadRoutes);
 app.use("/api/events", eventsLimiter, eventsRoutes);
