@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware.js";
 import { AuthService } from "../services/auth.service.js";
 import {
+  changePasswordSchema,
   requestOtpSchema,
   resetPasswordSchema,
   signInSchema,
@@ -27,6 +28,29 @@ export class AuthController {
       return res.status(400).json({
         success: false,
         message: err.message || "Registration failed",
+      });
+    }
+  }
+
+  static async changePassword(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user?.sub;
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
+      }
+
+      const parsed = changePasswordSchema.parse(req.body);
+      const result = await AuthService.changePassword(userId, parsed);
+      return res.status(200).json(result);
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        return res.status(400).json({ success: false, errors: err.errors });
+      }
+      return res.status(400).json({
+        success: false,
+        message: err.message || "Failed to update password",
       });
     }
   }

@@ -23,6 +23,7 @@ router.patch(
   AuthController.updateProfile,
 );
 router.post("/update-phone", requireAuth, AuthController.updatePhone);
+router.post("/change-password", requireAuth, AuthController.changePassword);
 router.post("/request-otp", AuthController.requestOtp);
 router.post("/verify-otp", AuthController.verifyOtp);
 router.post("/reset-password", AuthController.resetPassword);

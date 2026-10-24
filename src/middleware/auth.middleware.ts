@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from "express";
+import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "../auth.js";
+import { UserModel } from "../models/user.model.js";
 import { verifyJwt } from "../utils/jwt.js";
 
 export interface AuthRequest extends Request {
@@ -27,15 +29,28 @@ export const requireAuth = async (
     // 1. First attempt Better-Auth session verification using bearer plugin
     try {
       const session = await auth.api.getSession({
-        headers: req.headers as any,
+        headers: fromNodeHeaders(req.headers),
       });
 
       if (session && session.user) {
         req.session = session;
+        let phoneNumber = (session.user as any).phoneNumber;
+        let role = (session.user as any).role;
+
+        if (!phoneNumber || !role) {
+          const dbUser = await UserModel.findById(session.user.id).select(
+            "phoneNumber role",
+          );
+          if (dbUser) {
+            phoneNumber = phoneNumber || dbUser.phoneNumber;
+            role = role || dbUser.role;
+          }
+        }
+
         req.user = {
-          sub: session.user.id,
-          phoneNumber: (session.user as any).phoneNumber || "",
-          role: ((session.user as any).role as "admin" | "user") || "user",
+          sub: String(session.user.id),
+          phoneNumber: phoneNumber || "",
+          role: (role as "admin" | "user") || "user",
         };
         return next();
       }

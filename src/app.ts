@@ -26,6 +26,9 @@ app.set("trust proxy", 1);
 app.use(helmet());
 app.use(cors());
 
+// Mount Better Auth handler BEFORE body parsers so request stream is not consumed
+app.all(["/api/auth", "/api/auth/*splat"], toNodeHandler(auth));
+
 app.use((req: Request, res: Response, next: NextFunction) => {
   const contentType = req.headers["content-type"] || "";
   if (contentType.includes("multipart/form-data")) {
@@ -102,7 +105,6 @@ const marketplaceLimiter = rateLimit({
 });
 
 app.use("/api/auth", authLimiter, authRoutes);
-app.all(["/api/auth", "/api/auth/*splat"], toNodeHandler(auth));
 
 
 app.use("/api/upload", uploadLimiter, uploadRoutes);

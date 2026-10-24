@@ -1,13 +1,39 @@
 import mongoose from "mongoose";
-import { IUserDocument, UserModel } from "../models/user.model.js";
-import TeamModel from "../models/team.model.js";
+import { auth } from "../auth.js";
 import { OtpRecordModel } from "../models/otp.model.js";
+import TeamModel from "../models/team.model.js";
+import { IUserDocument, UserModel } from "../models/user.model.js";
 import { SignInDTO, SignUpDTO } from "../types/types.js";
 import { signJwt } from "../utils/jwt.js";
 import { uploadImageToCloudinary } from "./cloudinary.service.js";
 import { OtpService, toLocalPhone } from "./otp.service.js";
 
 export class AuthService {
+  static async createAuthToken(user: {
+    _id: any;
+    phoneNumber: string;
+    role: string;
+  }): Promise<string> {
+    try {
+      const ctx = await auth.$context;
+      const session = await ctx.internalAdapter.createSession(String(user._id));
+      if (session?.token) {
+        return session.token;
+      }
+    } catch (sessionErr) {
+      console.warn(
+        "Better Auth session creation failed, falling back to JWT:",
+        sessionErr,
+      );
+    }
+
+    return signJwt({
+      sub: user._id,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+    });
+  }
+
   static normalizePhone(phone: string): string {
     let n = phone.replace(/\D/g, "");
     if (n.startsWith("251") && n.length >= 12) {
@@ -99,11 +125,7 @@ export class AuthService {
 
     await user.save();
     await user.populate("team", "name");
-    const token = signJwt({
-      sub: user._id,
-      phoneNumber: user.phoneNumber,
-      role: user.role,
-    });
+    const token = await AuthService.createAuthToken(user);
 
     const safeUser = {
       id: user._id,
@@ -135,11 +157,7 @@ export class AuthService {
     if (!valid) {
       throw new Error("Invalid credentials");
     }
-    const token = signJwt({
-      sub: user._id,
-      phoneNumber: user.phoneNumber,
-      role: user.role,
-    });
+    const token = await AuthService.createAuthToken(user);
 
     const safeUser = {
       id: user._id,
@@ -248,6 +266,29 @@ export class AuthService {
     return safeUser;
   }
 
+  static async changePassword(
+    userId: string,
+    dto: { currentPassword: string; newPassword: string },
+  ) {
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const valid = await user.comparePassword(dto.currentPassword);
+    if (!valid) {
+      throw new Error("Incorrect current password.");
+    }
+
+    user.password = dto.newPassword;
+    await user.save();
+
+    return {
+      success: true,
+      message: "Password updated successfully",
+    };
+  }
+
   static async updatePhone(
     userId: string,
     dto: { phoneNumber: string; password: string },
@@ -274,11 +315,7 @@ export class AuthService {
     await user.save();
     await user.populate("team", "name");
 
-    const token = signJwt({
-      sub: user._id,
-      phoneNumber: user.phoneNumber,
-      role: user.role,
-    });
+    const token = await AuthService.createAuthToken(user);
 
     const safeUser = {
       id: user._id,
@@ -431,11 +468,7 @@ export class AuthService {
     // Consume the token so it cannot be used again
     await OtpRecordModel.deleteOne({ _id: record._id });
 
-    const token = signJwt({
-      sub: user._id,
-      phoneNumber: user.phoneNumber,
-      role: user.role,
-    });
+    const token = await AuthService.createAuthToken(user);
 
     return {
       success: true,

@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { bearer, phoneNumber } from "better-auth/plugins";
+import { expo } from "@better-auth/expo";
 import { OtpRecordModel } from "./models/otp.model.js";
 import { OtpService, toLocalPhone } from "./services/otp.service.js";
 import { mongoDb } from "./utils/mongodb.js";
@@ -19,8 +20,23 @@ export const auth = betterAuth({
       ? "https://my-fellow-api.onrender.com"
       : "http://localhost:3000"),
   basePath: "/api/auth",
+  emailAndPassword: {
+    enabled: true,
+  },
   user: {
+    modelName: "users",
+    fields: {
+      name: "fullName",
+    },
     additionalFields: {
+      fullName: {
+        type: "string",
+        required: false,
+      },
+      phoneNumber: {
+        type: "string",
+        required: false,
+      },
       team: {
         type: "string",
         required: false,
@@ -48,12 +64,20 @@ export const auth = betterAuth({
       },
     },
   },
+  session: {
+    modelName: "sessions",
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // 24 hours
+  },
   trustedOrigins: [
+    "my-fellow://",
+    "my-fellow://*",
+    "exp://",
+    "exp://*",
     "http://localhost:3000",
     "http://localhost:8081",
     "http://localhost:19000",
     "http://localhost:19006",
-    "exp://*",
     "https://*.onrender.com",
     "https://*.primeuat.app",
     "https://fellow.primeuat.app",
@@ -68,11 +92,8 @@ export const auth = betterAuth({
       "/sign-in/phone-number": { window: 60, max: 10 },
     },
   },
-  session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // 24 hours
-  },
   plugins: [
+    expo(),
     bearer(),
     phoneNumber({
       sendOTP: async ({ phoneNumber: phone, code }, request) => {
@@ -89,6 +110,10 @@ export const auth = betterAuth({
         });
 
         await OtpService.sendOtpSms(localPhone, code, "signup");
+      },
+      signUpOnVerification: {
+        getTempEmail: (phone) => `${toLocalPhone(phone)}@myfellow.local`,
+        getTempName: (phone) => `User ${toLocalPhone(phone)}`,
       },
       otpLength: 6,
       expiresIn: 300, // 5 minutes

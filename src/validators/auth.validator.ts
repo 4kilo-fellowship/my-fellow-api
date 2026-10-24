@@ -11,8 +11,13 @@ export const signUpSchema = z.object({
 });
 
 export const signInSchema = z.object({
-  phoneNumber: z.string().min(10).max(13),
+  phoneNumber: z.string().min(9).max(15),
   password: z.string().min(6),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(6),
 });
 
 export const updateProfileSchema = z.object({
