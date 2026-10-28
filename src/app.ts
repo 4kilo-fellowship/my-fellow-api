@@ -26,8 +26,27 @@ app.set("trust proxy", 1);
 app.use(helmet());
 app.use(cors());
 
-// Mount Better Auth handler BEFORE body parsers so request stream is not consumed
-app.all(["/api/auth", "/api/auth/*splat"], toNodeHandler(auth));
+const customAuthPaths = [
+  "/api/auth/phone",
+  "/api/auth/signin",
+  "/api/auth/signup",
+  "/api/auth/lookup-by-phone",
+  "/api/auth/me",
+  "/api/auth/profile",
+  "/api/auth/update-phone",
+  "/api/auth/change-password",
+  "/api/auth/request-otp",
+  "/api/auth/verify-otp",
+  "/api/auth/reset-password",
+];
+
+// Mount Better Auth handler BEFORE body parsers for non-custom auth requests
+app.all(["/api/auth", "/api/auth/*splat"], (req: Request, res: Response, next: NextFunction) => {
+  if (customAuthPaths.some((p) => req.path.startsWith(p) || req.path === p)) {
+    return next();
+  }
+  return toNodeHandler(auth)(req, res);
+});
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   const contentType = req.headers["content-type"] || "";
