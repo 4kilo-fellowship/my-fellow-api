@@ -21,7 +21,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@better-auth/expo": "^1.7.10",
+    "@better-auth/expo": "1.7.14",
     "@fal-ai/client": "^1.10.1",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
@@ -33,7 +33,7 @@
     "@types/node": "^24.13.3",
     "@types/pg": "^8.18.0",
     "bcrypt": "^6.0.0",
-    "better-auth": "^1.7.7",
+    "better-auth": "1.7.14",
     "cloudinary": "^2.11.0",
     "cors": "^2.8.6",
     "cron": "^4.4.0",
