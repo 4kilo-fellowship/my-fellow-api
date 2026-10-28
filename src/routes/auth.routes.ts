@@ -22,6 +22,8 @@ router.patch(
   handleMulterError,
   AuthController.updateProfile,
 );
+router.post("/phone/send-otp", AuthController.sendPhoneAuthOtp);
+router.post("/phone/verify-otp", AuthController.verifyPhoneAuthOtp);
 router.post("/update-phone", requireAuth, AuthController.updatePhone);
 router.post("/change-password", requireAuth, AuthController.changePassword);
 router.post("/request-otp", AuthController.requestOtp);

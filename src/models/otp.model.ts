@@ -3,7 +3,7 @@ import mongoose, { Document, Model, Schema } from "mongoose";
 export interface IOtpRecord extends Document {
   phoneNumber: string;
   codeHash: string;
-  purpose: "signup" | "reset-password";
+  purpose: "auth" | "signup" | "reset-password";
   attempts: number;
   maxAttempts: number;
   expiresAt: Date;
@@ -18,8 +18,8 @@ const OtpRecordSchema = new Schema<IOtpRecord>(
     codeHash: { type: String, required: true },
     purpose: {
       type: String,
-      enum: ["signup", "reset-password"],
-      default: "signup",
+      enum: ["auth", "signup", "reset-password"],
+      default: "auth",
     },
     attempts: { type: Number, default: 0 },
     maxAttempts: { type: Number, default: 5 },

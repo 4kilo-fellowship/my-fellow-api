@@ -334,6 +334,125 @@ export class AuthService {
     return { user: safeUser, token };
   }
 
+  static async sendPhoneAuthOtp(phoneNumber: string) {
+    const normalizedPhone = AuthService.normalizePhone(phoneNumber);
+
+    if (!/^(09|07)\d{8}$/.test(normalizedPhone)) {
+      throw new Error("Enter a valid Ethiopian phone number (e.g. 09... or 07...)");
+    }
+
+    // Rate-limit: Check if an active OTP was requested recently (less than 60 seconds ago)
+    const recentRecord = await OtpRecordModel.findOne({
+      phoneNumber: normalizedPhone,
+      purpose: "auth",
+      createdAt: { $gt: new Date(Date.now() - 60 * 1000) },
+    });
+
+    if (recentRecord) {
+      throw new Error("Please wait 60 seconds before requesting another code.");
+    }
+
+    // Invalidate prior codes
+    await OtpRecordModel.deleteMany({
+      phoneNumber: normalizedPhone,
+      purpose: "auth",
+    });
+
+    const code = OtpService.generateSecureCode(6);
+    const codeHash = OtpService.hashSecret(code);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    await OtpRecordModel.create({
+      phoneNumber: normalizedPhone,
+      codeHash,
+      purpose: "auth",
+      expiresAt,
+    });
+
+    await OtpService.sendOtpSms(normalizedPhone, code, "auth");
+
+    return {
+      success: true,
+      message: "Verification code sent successfully",
+      phoneNumber: normalizedPhone,
+      expiresIn: 300,
+    };
+  }
+
+  static async verifyPhoneAuthOtp(phoneNumber: string, code: string) {
+    const normalizedPhone = AuthService.normalizePhone(phoneNumber);
+
+    const record = await OtpRecordModel.findOne({
+      phoneNumber: normalizedPhone,
+      purpose: "auth",
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!record) {
+      throw new Error("Verification code has expired or was not requested. Please request a new code.");
+    }
+
+    if (record.attempts >= record.maxAttempts) {
+      await OtpRecordModel.deleteOne({ _id: record._id });
+      throw new Error("Too many failed attempts. For your security, this code has been revoked.");
+    }
+
+    const inputHash = OtpService.hashSecret(code.trim());
+    const isValid = OtpService.timingSafeEqual(inputHash, record.codeHash);
+
+    if (!isValid) {
+      record.attempts += 1;
+      await record.save();
+      const remaining = record.maxAttempts - record.attempts;
+      throw new Error(
+        remaining > 0
+          ? `Invalid verification code. ${remaining} attempt(s) remaining.`
+          : "Invalid verification code. Maximum attempts exceeded."
+      );
+    }
+
+    // Delete record on successful verification
+    await OtpRecordModel.deleteOne({ _id: record._id });
+
+    // Find or create user
+    let user = await UserModel.findOne({ phoneNumber: normalizedPhone });
+    let isNewUser = false;
+
+    if (!user) {
+      user = await UserModel.create({
+        phoneNumber: normalizedPhone,
+        fullName: "",
+        role: "user",
+      });
+      isNewUser = true;
+    } else if (!user.fullName || !user.department) {
+      isNewUser = true;
+    }
+
+    const token = await AuthService.createAuthToken(user);
+
+    const safeUser = {
+      id: user._id,
+      fullName: user.fullName,
+      phoneNumber: user.phoneNumber,
+      department: user.department,
+      yearOfStudy: user.yearOfStudy,
+      team: user.team,
+      telegramUserName: user.telegramUserName,
+      profileImage: user.profileImage,
+      role: user.role,
+      createdAt: user.createdAt,
+    };
+
+    return {
+      success: true,
+      message: isNewUser ? "Welcome to My Fellow" : "Welcome back",
+      token,
+      user: safeUser,
+      isNewUser,
+    };
+  }
+
   static async requestOtp(phoneNumber: string, purpose: "signup" | "reset-password" = "signup") {
     const normalizedPhone = toLocalPhone(phoneNumber);
 

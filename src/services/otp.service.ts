@@ -97,59 +97,79 @@ export class OtpService {
   static async sendOtpSms(
     phoneNumber: string,
     code: string,
-    purpose: "signup" | "reset-password" = "signup",
+    purpose: "auth" | "signup" | "reset-password" = "auth",
   ): Promise<void> {
     const localPhone = toLocalPhone(phoneNumber);
     const network = getEthiopianMobileNetwork(localPhone);
 
     const message =
-      purpose === "signup"
-        ? `Your 4Killo Fellowship verification code is: ${code}. It expires in 5 minutes. Do NOT share this code with anyone.`
-        : `Your 4Killo Fellowship password reset code is: ${code}. It expires in 5 minutes. Do NOT share this code with anyone.`;
+      purpose === "reset-password"
+        ? `Your 4 Kilo Fellowship password reset code is: ${code}. It expires in 5 minutes. Never share this code.`
+        : `4 Kilo Fellowship: Your verification code is ${code}. It expires in 5 minutes. Never share this code.`;
 
-    if (!API_KEY) {
+    const apiKey =
+      process.env.GEEZ_API_KEY || "0qFfXN2d4ZNdFvR16rOojdvVuofpwOBV";
+
+    if (!apiKey) {
       console.warn(
         `[OTP DEV] GEEZ_API_KEY missing. Mocking SMS for ${localPhone}: ${message}`,
       );
       return;
     }
 
-    // GeezSMS currently requires Ethio Telecom numbers (09...)
-    // If the phone is Safaricom (07...), in dev/prod we log warning or simulate cleanly
-    if (network === "safaricom") {
-      console.info(
-        `[OTP] Note: Number is Safaricom (${maskedPhone(localPhone)}). If GeezSMS rejects, code logged in server console: ${code}`,
-      );
-    }
+    let cleaned = phoneNumber.replace(/[\s\-\(\)\.]/g, "");
+    if (cleaned.startsWith("+251")) cleaned = "251" + cleaned.slice(4);
+    else if (cleaned.startsWith("0")) cleaned = "251" + cleaned.slice(1);
+    else if (!cleaned.startsWith("251")) cleaned = "251" + cleaned;
 
-    const body = new FormData();
-    body.set("token", API_KEY);
-    body.set("phone", toSmsPhone(localPhone));
-    body.set("msg", message.slice(0, 335));
-
-    if (SHORTCODE_ID) {
-      body.set("shortcode_id", SHORTCODE_ID);
-    }
-
+    // Try GET request first (canonical GeezSMS endpoint)
     try {
-      const response = await fetch(sendUrl(), {
+      const params = new URLSearchParams({
+        token: apiKey,
+        phone: cleaned,
+        msg: message,
+      });
+      if (SHORTCODE_ID) {
+        params.append("shortcode_id", SHORTCODE_ID);
+      }
+
+      const res = await fetch(`https://api.geezsms.com/api/v1/sms/send?${params.toString()}`);
+      const data = (await res.json().catch(() => null)) as any;
+      if (res.ok && (!data || !data.error)) {
+        console.info(`[GeezSMS] Successfully sent OTP to ${maskedPhone(localPhone)}`);
+        return;
+      }
+      console.warn(`[GeezSMS] GET request returned: ${res.status}, falling back to POST`);
+    } catch (err) {
+      console.warn("[GeezSMS] GET request failed, falling back to POST:", err);
+    }
+
+    // Fallback: POST
+    try {
+      const payload: Record<string, string> = {
+        token: apiKey,
+        phone: cleaned,
+        msg: message,
+      };
+      if (SHORTCODE_ID) {
+        payload.shortcode_id = SHORTCODE_ID;
+      }
+
+      const res = await fetch("https://api.geezsms.com/api/v1/sms/send", {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-        },
-        body,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        const raw = await response.text().catch(() => "");
+      if (!res.ok) {
+        const raw = await res.text().catch(() => "");
         console.error(
-          `GeezSMS rejected SMS to ${maskedPhone(localPhone)}: HTTP ${response.status} ${raw}`,
+          `GeezSMS rejected POST SMS to ${maskedPhone(localPhone)}: HTTP ${res.status} ${raw}`,
         );
-        // We log the code so developer / testing is never stranded even if SMS credits lapse
         console.info(`[OTP Fallback] Code for ${localPhone}: ${code}`);
       } else {
         console.info(
-          `GeezSMS successfully sent OTP to ${maskedPhone(localPhone)}`,
+          `[GeezSMS] POST successfully sent OTP to ${maskedPhone(localPhone)}`,
         );
       }
     } catch (err: any) {
@@ -157,7 +177,6 @@ export class OtpService {
         `GeezSMS network error for ${maskedPhone(localPhone)}:`,
         err?.message || err,
       );
-      // Log for fallback verification during testing
       console.info(`[OTP Network Fallback] Code for ${localPhone}: ${code}`);
     }
   }

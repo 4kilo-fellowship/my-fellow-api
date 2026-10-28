@@ -9,7 +9,7 @@ export interface IUser {
   yearOfStudy?: string | null;
   telegramUserName?: string | null;
   profileImage?: string | null;
-  password: string;
+  password?: string | null;
   role: "admin" | "user";
   createdAt?: Date;
   updatedAt?: Date;
@@ -21,7 +21,7 @@ export interface IUserDocument extends IUser, Document {
 
 const UserSchema = new Schema<IUserDocument>(
   {
-    fullName: { type: String, required: true, trim: true },
+    fullName: { type: String, default: "", trim: true },
     phoneNumber: {
       type: String,
       required: true,
@@ -34,14 +34,14 @@ const UserSchema = new Schema<IUserDocument>(
     yearOfStudy: { type: String, default: null },
     telegramUserName: { type: String, default: null },
     profileImage: { type: String, default: null },
-    password: { type: String, required: true, minlength: 6 },
+    password: { type: String, required: false, default: null },
     role: { type: String, enum: ["admin", "user"], default: "user" },
   },
   { timestamps: true },
 );
 
 UserSchema.pre<IUserDocument>("save", async function () {
-  if (!this.isModified("password")) return;
+  if (!this.isModified("password") || !this.password) return;
 
   // hash the password
   const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || "12", 10);
@@ -49,6 +49,7 @@ UserSchema.pre<IUserDocument>("save", async function () {
 });
 
 UserSchema.methods.comparePassword = function (candidate: string) {
+  if (!this.password) return Promise.resolve(false);
   return bcrypt.compare(candidate, this.password);
 };
 

@@ -7,9 +7,11 @@ import {
   resetPasswordSchema,
   signInSchema,
   signUpSchema,
+  sendPhoneAuthOtpSchema,
   updatePhoneSchema,
   updateProfileSchema,
   verifyOtpSchema,
+  verifyPhoneAuthOtpSchema,
 } from "../validators/auth.validator.js";
 
 export class AuthController {
@@ -177,6 +179,41 @@ export class AuthController {
       return res.status(400).json({
         success: false,
         message: err.message || "Failed to update profile",
+      });
+    }
+  }
+
+  static async sendPhoneAuthOtp(req: AuthRequest, res: Response) {
+    try {
+      const parsed = sendPhoneAuthOtpSchema.parse(req.body);
+      const result = await AuthService.sendPhoneAuthOtp(parsed.phoneNumber);
+      return res.status(200).json(result);
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        return res.status(400).json({ success: false, errors: err.errors });
+      }
+      return res.status(400).json({
+        success: false,
+        message: err.message || "Failed to send verification code",
+      });
+    }
+  }
+
+  static async verifyPhoneAuthOtp(req: AuthRequest, res: Response) {
+    try {
+      const parsed = verifyPhoneAuthOtpSchema.parse(req.body);
+      const result = await AuthService.verifyPhoneAuthOtp(
+        parsed.phoneNumber,
+        parsed.code,
+      );
+      return res.status(200).json(result);
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        return res.status(400).json({ success: false, errors: err.errors });
+      }
+      return res.status(400).json({
+        success: false,
+        message: err.message || "Failed to verify code",
       });
     }
   }

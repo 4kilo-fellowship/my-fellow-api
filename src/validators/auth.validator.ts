@@ -21,11 +21,21 @@ export const changePasswordSchema = z.object({
 });
 
 export const updateProfileSchema = z.object({
-  fullName: z.string().min(3).optional(),
-  phoneNumber: z.string().min(8).max(13).optional(),
+  fullName: z.string().min(2).optional(),
+  phoneNumber: z.string().min(8).max(15).optional(),
+  team: z.string().optional().nullable(),
   department: z.string().optional().nullable(),
   yearOfStudy: z.string().optional().nullable(),
   telegramUserName: z.string().optional().nullable(),
+});
+
+export const sendPhoneAuthOtpSchema = z.object({
+  phoneNumber: z.string().min(8).max(15),
+});
+
+export const verifyPhoneAuthOtpSchema = z.object({
+  phoneNumber: z.string().min(8).max(15),
+  code: z.string().length(6),
 });
 
 export const updatePhoneSchema = z.object({
