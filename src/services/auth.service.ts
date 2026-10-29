@@ -240,6 +240,20 @@ export class AuthService {
       }
     }
 
+    // Resolve team name string → ObjectId if a string name was sent
+    if (updates.team && typeof updates.team === "string" && !mongoose.isValidObjectId(updates.team)) {
+      const teamDoc = await TeamModel.findOne({
+        name: { $regex: new RegExp(`^${updates.team.trim()}`, "i") },
+        isDeleted: { $ne: true },
+      }).select("_id");
+      if (teamDoc) {
+        updates.team = teamDoc._id;
+      } else {
+        // Team name not found in DB — store as null rather than crashing
+        updates.team = null;
+      }
+    }
+
     Object.keys(updates).forEach((key) => {
       if (updates[key] !== undefined) {
         (user as any)[key] = updates[key];
