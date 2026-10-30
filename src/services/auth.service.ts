@@ -208,7 +208,15 @@ export class AuthService {
   }
 
   static async findById(id: string): Promise<IUserDocument | null> {
-    return UserModel.findById(id).select("-password").populate("team", "name");
+    const user = await UserModel.findById(id).select("-password").populate("team", "name");
+    if (user && process.env.ADMIN_PHONE_NUMBER) {
+      const adminPhone = toLocalPhone(process.env.ADMIN_PHONE_NUMBER);
+      if (adminPhone && toLocalPhone(user.phoneNumber) === adminPhone && user.role !== "admin") {
+        user.role = "admin";
+        await user.save();
+      }
+    }
+    return user;
   }
 
   static async updateProfile(
@@ -432,15 +440,26 @@ export class AuthService {
     let user = await UserModel.findOne({ phoneNumber: normalizedPhone });
     let isNewUser = false;
 
+    const adminPhone = process.env.ADMIN_PHONE_NUMBER
+      ? toLocalPhone(process.env.ADMIN_PHONE_NUMBER)
+      : null;
+    const isAdminPhone = !!adminPhone && normalizedPhone === adminPhone;
+
     if (!user) {
       user = await UserModel.create({
         phoneNumber: normalizedPhone,
         fullName: "",
-        role: "user",
+        role: isAdminPhone ? "admin" : "user",
       });
       isNewUser = true;
-    } else if (!user.fullName || !user.department) {
-      isNewUser = true;
+    } else {
+      if (isAdminPhone && user.role !== "admin") {
+        user.role = "admin";
+        await user.save();
+      }
+      if (!user.fullName || !user.department) {
+        isNewUser = true;
+      }
     }
 
     const token = await AuthService.createAuthToken(user);
