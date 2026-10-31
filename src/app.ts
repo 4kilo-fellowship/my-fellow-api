@@ -17,6 +17,8 @@ import programRoutes from "./routes/program.routes.js";
 import supportRoutes from "./routes/support.routes.js";
 import teamRoutes from "./routes/team.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
+import v1Router from "./routes/v1.routes.js";
+import { errorMiddleware } from "./platform/errors.js";
 import job from "./utils/cron.js";
 
 const app = express();
@@ -139,7 +141,13 @@ app.use("/api/devotions", devotionLimiter, devotionRoutes);
 app.use("/api/marketplace", marketplaceLimiter, marketplaceRoutes);
 app.use("/api/support", supportRoutes);
 
+// 4K Social Platform v1 API
+app.use("/api/v1", v1Router);
+
 app.get("/health", (req, res) => res.json({ ok: true }));
+
+// RFC 9457 Centralized Error Middleware
+app.use(errorMiddleware);
 
 if (process.env.API_URL) {
   job.start();
