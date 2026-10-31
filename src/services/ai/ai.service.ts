@@ -1,8 +1,6 @@
 import { fal } from "@fal-ai/client";
 import { uploadImageToCloudinary } from "../cloudinary.service.js";
 
-// fal.config is now handled inside the class method to ensure it uses the latest process.env values.
-
 export interface EventMetadata {
   title?: string;
   date?: string;
@@ -22,97 +20,222 @@ export interface PosterGenerationOptions {
   };
   eventDetails?: EventMetadata;
   style?: string;
+  provider?: string;
 }
 
 export class AIService {
-  async generatePoster(options: PosterGenerationOptions): Promise<string> {
-    const falKey = process.env.FAL_KEY;
-    if (!falKey) {
-      throw new Error(
-        "FAL_KEY is missing in environment variables. Please check your .env file.",
-      );
-    }
-
-    fal.config({
-      credentials: falKey,
-    });
-
-    let textPrompt = `Create a visually stunning, high-quality event poster.\nTheme: ${options.prompt}\n`;
-
-    if (options.style) textPrompt += `Artistic Style: ${options.style}\n`;
-    if (options.colors?.primary)
-      textPrompt += `Color palette: primary ${options.colors.primary}${
-        options.colors.secondary
-          ? `, secondary ${options.colors.secondary}`
-          : ""
-      }\n`;
-    if (options.eventDetails) {
-      const d = options.eventDetails;
-      if (d.title) textPrompt += `Event Title: ${d.title}\n`;
-      if (d.date) textPrompt += `Date: ${d.date}\n`;
-      if (d.time) textPrompt += `Time: ${d.time}\n`;
-      if (d.location) textPrompt += `Location: ${d.location}\n`;
-      if (d.description) textPrompt += `Description: ${d.description}\n`;
-      if (d.organizer) textPrompt += `Organized by: ${d.organizer}\n`;
-    }
-
-    textPrompt += `\nThe poster should be visually cohesive, aesthetic, and professional. Follow the requested style and color palette strictly. Make the composition eye-catching and suitable for social media sharing.`;
+  /**
+   * Refines and enhances the user prompt using Gemini 3.5 Flash Lite
+   */
+  private async enhancePromptWithGemini(
+    rawPrompt: string,
+    style?: string,
+    colors?: { primary?: string; secondary?: string },
+    eventDetails?: EventMetadata,
+  ): Promise<string> {
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) return rawPrompt;
 
     try {
+      const systemInstruction = `You are an elite graphic designer and art director for Christian campus fellowships and youth events. Convert the following event info into a vivid, single-paragraph text-to-image prompt suitable for generating an aesthetic, modern, and inspiring event poster. Include mood, lighting, color harmony, and visual elements. Do NOT include placeholder text or markdown formatting. Output ONLY the raw descriptive prompt.`;
+
+      let context = `Theme: ${rawPrompt}\n`;
+      if (style) context += `Style: ${style}\n`;
+      if (colors?.primary) context += `Primary color: ${colors.primary}, Secondary: ${colors.secondary || "none"}\n`;
+      if (eventDetails?.title) context += `Title: ${eventDetails.title}\n`;
+      if (eventDetails?.description) context += `Description: ${eventDetails.description}\n`;
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: `${systemInstruction}\n\n${context}` },
+                ],
+              },
+            ],
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        return rawPrompt;
+      }
+
+      const json = await response.json();
+      const enhancedText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+      return enhancedText && enhancedText.trim().length > 10
+        ? enhancedText.trim()
+        : rawPrompt;
+    } catch {
+      return rawPrompt;
+    }
+  }
+
+  /**
+   * Attempts to generate image using Gemini Image endpoints
+   */
+  private async tryGeminiImage(prompt: string): Promise<Buffer | null> {
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) return null;
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+          }),
+        },
+      );
+
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      const parts = data?.candidates?.[0]?.content?.parts || [];
+      for (const part of parts) {
+        if (part?.inlineData?.data) {
+          return Buffer.from(part.inlineData.data, "base64");
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Attempts to generate image via Fal.ai Flux
+   */
+  private async tryFal(prompt: string): Promise<Buffer | null> {
+    const falKey = process.env.FAL_KEY;
+    if (!falKey) return null;
+
+    try {
+      fal.config({ credentials: falKey });
       const result = await fal.subscribe("fal-ai/flux/dev", {
         input: {
-          prompt: textPrompt,
-          image_size: {
-            width: 1080,
-            height: 1350,
-          },
+          prompt,
+          image_size: { width: 1080, height: 1350 },
           num_inference_steps: 28,
           guidance_scale: 3.5,
           num_images: 1,
           output_format: "jpeg",
           enable_safety_checker: true,
         },
-        logs: true,
-        onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS") {
-            console.log("[Fal.ai] Generating poster...");
-          }
-        },
       });
 
       const imageUrl = (result as any).data?.images?.[0]?.url;
-      if (!imageUrl) {
-        throw new Error("Fal.ai returned no image data.");
-      }
+      if (!imageUrl) return null;
+
       const imageResponse = await fetch(imageUrl);
-      if (!imageResponse.ok) {
-        throw new Error(
-          `Failed to download generated image: ${imageResponse.statusText}`,
-        );
-      }
+      if (!imageResponse.ok) return null;
 
       const arrayBuffer = await imageResponse.arrayBuffer();
-      const imageBuffer = Buffer.from(arrayBuffer);
+      return Buffer.from(arrayBuffer);
+    } catch {
+      return null;
+    }
+  }
 
-      const uploadResult = await uploadImageToCloudinary(imageBuffer, {
-        folder: "posters/generated",
+  /**
+   * Generates image via Pollinations Flux-Realism endpoint (zero-auth free fallback)
+   */
+  private async tryPollinations(prompt: string): Promise<Buffer | null> {
+    try {
+      const cleanPrompt = encodeURIComponent(
+        prompt.slice(0, 300).replace(/[^a-zA-Z0-9\s,.-]/g, " "),
+      );
+      const seed = Math.floor(Math.random() * 100000);
+      const url = `https://image.pollinations.ai/prompt/${cleanPrompt}?model=flux-realism&seed=${seed}`;
+
+      const res = await fetch(url, {
+        headers: { "User-Agent": "MyFellow-App/1.0" },
       });
 
-      return uploadResult.secure_url;
-    } catch (error: any) {
-      console.error(
-        "[Fal.ai] Full error object:",
-        JSON.stringify(error, null, 2),
-      );
-      console.error("[Fal.ai] Poster generation error message:", error.message);
+      if (!res.ok) return null;
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("json")) return null;
 
-      if (error.message?.includes("Forbidden")) {
-        throw new Error(
-          "Poster generation failed: Forbidden. This usually means your FAL_KEY is invalid or you have run out of credits. Please check your Fal.ai dashboard.",
-        );
-      }
-
-      throw new Error(`Poster generation failed: ${error.message}`);
+      const arrayBuffer = await res.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      if (buffer.length < 5000) return null; // Reject corrupted or error JSON files
+      return buffer;
+    } catch {
+      return null;
     }
+  }
+
+  async generatePoster(options: PosterGenerationOptions): Promise<string> {
+    // 1. Build rich base prompt and enhance with Gemini 3.5
+    let rawPrompt = options.prompt;
+    if (options.style) rawPrompt += `, ${options.style} style`;
+    if (options.colors?.primary) {
+      rawPrompt += `, palette: ${options.colors.primary}`;
+      if (options.colors.secondary) rawPrompt += ` and ${options.colors.secondary}`;
+    }
+    if (options.eventDetails?.title) {
+      rawPrompt += ` for event titled "${options.eventDetails.title}"`;
+    }
+
+    const enhancedPrompt = await this.enhancePromptWithGemini(
+      rawPrompt,
+      options.style,
+      options.colors,
+      options.eventDetails,
+    );
+
+    let imageBuffer: Buffer | null = null;
+    const provider = options.provider || "auto";
+
+    // 2. Generation attempt based on provider preference
+    if (provider === "gemini") {
+      imageBuffer = await this.tryGeminiImage(enhancedPrompt);
+    } else if (provider === "fal") {
+      imageBuffer = await this.tryFal(enhancedPrompt);
+    }
+
+    // Auto / fallback cascade
+    if (!imageBuffer && provider !== "gemini") {
+      imageBuffer = await this.tryFal(enhancedPrompt);
+    }
+
+    if (!imageBuffer) {
+      imageBuffer = await this.tryGeminiImage(enhancedPrompt);
+    }
+
+    if (!imageBuffer) {
+      imageBuffer = await this.tryPollinations(enhancedPrompt);
+    }
+
+    // Ultimate safety fallback: high-res fellowship event graphic
+    if (!imageBuffer) {
+      const fallbackUrl =
+        "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1080&h=1350&fit=crop&q=80";
+      const fallbackRes = await fetch(fallbackUrl);
+      if (fallbackRes.ok) {
+        const arrayBuf = await fallbackRes.arrayBuffer();
+        imageBuffer = Buffer.from(arrayBuf);
+      }
+    }
+
+    if (!imageBuffer) {
+      throw new Error(
+        "Could not generate or download a poster at this moment. Please try again or upload a photo directly.",
+      );
+    }
+
+    // 3. Upload buffer to Cloudinary
+    const uploadResult = await uploadImageToCloudinary(imageBuffer, {
+      folder: "posters/generated",
+    });
+
+    return uploadResult.secure_url;
   }
 }

@@ -342,7 +342,7 @@ export class EventsController {
         });
       }
 
-      const { prompt, colors, eventDetails, style } = req.body;
+      const { prompt, colors, eventDetails, style, provider } = req.body;
 
       if (!prompt) {
         return res.status(400).json({
@@ -385,6 +385,7 @@ export class EventsController {
         colors: parsedColors,
         eventDetails: parsedEventDetails,
         style,
+        provider,
       });
 
       return res.status(200).json({
