@@ -39,12 +39,16 @@ export async function getUserStreak(userId: string): Promise<UserStreakResult> {
   const userStreak = profile?.streak;
   const lastDate = userStreak?.lastLocalDate;
 
-  let current = userStreak?.current || 0;
-  const longest = userStreak?.longest || 0;
+  // Baseline encouragement: initialize with at least 1 day for newly registered members
+  let current = userStreak ? userStreak.current : 1;
+  const longest = userStreak ? userStreak.longest : 1;
 
-  // Lapsed check: If lastDate is neither today nor yesterday, streak is broken
+  // Lapsed check: If user had an active check-in date and it's older than yesterday, reset to 0
   if (lastDate && lastDate !== today && lastDate !== yesterday) {
     current = 0;
+  } else if (!lastDate) {
+    // Member has not checked in yet: give them day 1 welcome baseline
+    current = Math.max(1, current);
   }
 
   const checkedInToday = lastDate === today;
