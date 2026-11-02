@@ -11,6 +11,7 @@ import {
 } from "../../platform/serializer.js";
 import { ProfileDetail, UserSummary } from "../../platform/types.js";
 import { routeParam } from "../../utils/routeParam.js";
+import { getUserStreak } from "../streaks/streak.service.js";
 
 const router = Router();
 
@@ -178,6 +179,9 @@ router.get("/profiles/:username", optionalAuth, async (req: AuthRequest, res: Re
       cover: h.coverAssetId ? serializeMediaAsset(coverMap.get(h.coverAssetId)) : null,
     }));
 
+    // Evaluated streak with calendar date break detection
+    const evaluatedStreak = await getUserStreak(targetUserId);
+
     // Badges row
     const badges: { kind: "ministry" | "academic" | "streak" | "role"; label: string }[] = [];
     if (profile.ministryMemberships?.[0]?.ministry) {
@@ -187,8 +191,8 @@ router.get("/profiles/:username", optionalAuth, async (req: AuthRequest, res: Re
     if (acadLabel) {
       badges.push({ kind: "academic", label: acadLabel });
     }
-    if (profile.streak && profile.streak.current > 0) {
-      badges.push({ kind: "streak", label: `${profile.streak.current}d Streak` });
+    if (evaluatedStreak.currentStreak > 0) {
+      badges.push({ kind: "streak", label: `${evaluatedStreak.currentStreak}d Streak` });
     }
     if (profile.fellowshipRole) {
       badges.push({ kind: "role", label: profile.fellowshipRole });
@@ -207,7 +211,7 @@ router.get("/profiles/:username", optionalAuth, async (req: AuthRequest, res: Re
         label: acadLabel,
       },
       badges,
-      streak: profile.streak ? { current: profile.streak.current } : null,
+      streak: evaluatedStreak.currentStreak > 0 ? { current: evaluatedStreak.currentStreak } : null,
       counts: {
         following: profile.followingCount,
         connects: profile.followersCount,

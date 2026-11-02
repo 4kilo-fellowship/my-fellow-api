@@ -3,6 +3,7 @@ import { requireAuth, AuthRequest } from "../../middleware/auth.middleware.js";
 import { prisma } from "../../utils/prisma.js";
 import { serializeUserSummary, serializeMediaAsset } from "../../platform/serializer.js";
 import { UserModel } from "../../models/user.model.js";
+import { getUserStreak } from "../streaks/streak.service.js";
 
 const router = Router();
 
@@ -90,6 +91,9 @@ router.get("/me", requireAuth, async (req: AuthRequest, res: Response) => {
 
     const summary = serializeUserSummary(profile, avatarAsset);
 
+    // Get live evaluated streak with break detection
+    const evaluatedStreak = await getUserStreak(userId);
+
     return res.json({
       user: summary,
       profile: {
@@ -104,8 +108,10 @@ router.get("/me", requireAuth, async (req: AuthRequest, res: Response) => {
         links: profile.links.map((l) => ({ kind: l.kind, handle: l.handle, url: l.url })),
       },
       streak: {
-        current: profile.streak?.current || 0,
-        longest: profile.streak?.longest || 0,
+        current: evaluatedStreak.currentStreak,
+        longest: evaluatedStreak.bestStreak,
+        lastLocalDate: evaluatedStreak.lastActiveDate,
+        checkedInToday: evaluatedStreak.checkedInToday,
       },
       unreadNotificationsCount,
     });

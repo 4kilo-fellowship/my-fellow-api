@@ -6,6 +6,7 @@ import { AppError } from "../../platform/errors.js";
 import { hydratePosts } from "./post.service.js";
 import { buildPaginatedResponse, decodeCursor } from "../../platform/pagination.js";
 import { routeParam } from "../../utils/routeParam.js";
+import { recordStreakCheckIn } from "../streaks/streak.service.js";
 
 const router = Router();
 
@@ -178,6 +179,13 @@ router.post("/posts", requireAuth, async (req: AuthRequest, res: Response, next)
 
       return post;
     });
+
+    // Auto check-in streak on successful reflection post
+    try {
+      await recordStreakCheckIn(authorId, "post");
+    } catch (streakErr) {
+      console.error("[Post Streak Auto-Checkin]:", streakErr);
+    }
 
     const [hydrated] = await hydratePosts([createdPost], authorId);
     return res.status(201).json(hydrated);
