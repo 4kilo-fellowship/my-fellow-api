@@ -419,14 +419,18 @@ export class AuthService {
     }
 
     const inputCode = code.trim();
-    const isValid =
-      OtpService.isDevelopmentOtpEnabled() &&
-      OtpService.timingSafeEqual(inputCode, OtpService.developmentCode())
-        ? true
-        : OtpService.timingSafeEqual(
-            OtpService.hashSecret(inputCode),
-            record.codeHash,
-          );
+    const devMode = OtpService.isDevelopmentOtpEnabled();
+    const devCode = OtpService.developmentCode();
+    const isValid = devMode
+      ? OtpService.timingSafeEqual(inputCode, devCode) ||
+        OtpService.timingSafeEqual(
+          OtpService.hashSecret(inputCode),
+          record.codeHash,
+        )
+      : OtpService.timingSafeEqual(
+          OtpService.hashSecret(inputCode),
+          record.codeHash,
+        );
 
     if (!isValid) {
       record.attempts += 1;

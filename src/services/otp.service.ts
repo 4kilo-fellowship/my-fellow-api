@@ -55,13 +55,19 @@ function maskedPhone(phone: string): string {
 
 export class OtpService {
   static isDevelopmentOtpEnabled(): boolean {
-    if (process.env.OTP_DEV_MODE === "true") return true;
-    if (process.env.OTP_DEV_MODE === "false") return false;
+    const raw = process.env.OTP_DEV_MODE?.trim().toLowerCase();
+    if (raw === "true" || raw === "1" || raw === "yes" || raw === "on") {
+      return true;
+    }
+    if (raw === "false" || raw === "0" || raw === "no" || raw === "off") {
+      return false;
+    }
     return process.env.NODE_ENV !== "production";
   }
 
   static developmentCode(): string {
-    return process.env.OTP_DEV_CODE || "000000";
+    const code = process.env.OTP_DEV_CODE?.trim() || "000000";
+    return /^\d{6}$/.test(code) ? code : "000000";
   }
 
   /**
