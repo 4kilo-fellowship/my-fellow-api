@@ -1,10 +1,43 @@
 import { Router } from "express";
 import DevotionController from "../controllers/devotion.controller.js";
+import WriterRequestController from "../controllers/writerRequest.controller.js";
 import { uploadDevotionFiles } from "../middleware/upload.middleware.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.middleware.js";
 
 const router = Router();
 
+// ─── WRITER APPLICATION REQUESTS ──────────────────────────────────────
+// POST /api/devotions/writer-requests — submit a writer application
+router.post(
+  "/writer-requests",
+  requireAuth,
+  WriterRequestController.create
+);
+
+// GET /api/devotions/writer-requests/me — fetch logged-in user's application
+router.get(
+  "/writer-requests/me",
+  requireAuth,
+  WriterRequestController.getMyRequest
+);
+
+// GET /api/devotions/writer-requests — list applications (admin)
+router.get(
+  "/writer-requests",
+  requireAuth,
+  requireAdmin,
+  WriterRequestController.getAll
+);
+
+// PATCH /api/devotions/writer-requests/:id/status — update status (admin)
+router.patch(
+  "/writer-requests/:id/status",
+  requireAuth,
+  requireAdmin,
+  WriterRequestController.updateStatus
+);
+
+// ─── DEVOTIONS ────────────────────────────────────────────────────────
 // GET /api/devotions?type=voice&featured=true&tags=faith,hope&page=1&limit=10&search=peace
 router.get("/", DevotionController.getAllDevotions);
 
