@@ -11,14 +11,24 @@ export interface InitializeCheckoutParams {
 }
 
 export class JamiService {
-  private client: Jami;
+  private client: Jami | null = null;
+
+  private getClient(): Jami {
+    if (!this.client) {
+      const token = process.env.JAMI_TOKEN || "";
+      if (!token) {
+        throw new Error("Jami API Token (JAMI_TOKEN) is not configured in .env");
+      }
+      this.client = new Jami({ token });
+    }
+    return this.client;
+  }
 
   constructor() {
     const token = process.env.JAMI_TOKEN || "";
     if (!token) {
       console.warn("⚠️ JAMI_TOKEN is not configured in environment variables.");
     }
-    this.client = new Jami({ token });
   }
 
   /**
@@ -55,7 +65,7 @@ export class JamiService {
     const description = (params.reason || "Donation to 4 Kilo Fellowship").slice(0, 120);
     const normalizedPhone = this.normalizeEthiopianPhone(params.phone);
 
-    const checkout = await this.client.createCheckout({
+    const checkout = await this.getClient().createCheckout({
       amount: amountSantim,
       description,
       customer: {
@@ -84,7 +94,7 @@ export class JamiService {
     if (!sessionId) {
       throw new Error("Session ID is required to verify checkout");
     }
-    return this.client.getCheckoutStatus(sessionId);
+    return this.getClient().getCheckoutStatus(sessionId);
   }
 
   /**
@@ -96,7 +106,7 @@ export class JamiService {
       throw new Error("JAMI_WEBHOOK_SECRET is not configured in .env");
     }
 
-    return this.client.webhooks.verify({
+    return this.getClient().webhooks.verify({
       payload,
       signature,
       secret,
