@@ -56,7 +56,7 @@ export const auth = betterAuth({
       role: {
         type: "string",
         required: false,
-        defaultValue: "user",
+        defaultValue: "member",
       },
       profileImage: {
         type: "string",
@@ -120,4 +120,3 @@ export const auth = betterAuth({
     }),
   ],
 });
-

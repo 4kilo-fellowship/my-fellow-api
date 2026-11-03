@@ -3,6 +3,7 @@ import { AuthRequest } from "../middleware/auth.middleware.js";
 import { OrderService } from "../services/order.service.js";
 import type { OrderStatus } from "@prisma/client";
 import { routeParam } from "../utils/routeParam.js";
+import { normalizeRole } from "../rbac/permissions.js";
 
 export class OrderController {
   static async create(req: AuthRequest, res: Response) {
@@ -70,7 +71,7 @@ export class OrderController {
           .json({ success: false, message: "Order not found" });
       }
 
-      if (req.user!.role !== "admin" && order.userId !== req.user!.sub) {
+      if (normalizeRole(req.user!.role) !== "super_admin" && order.userId !== req.user!.sub) {
         return res.status(403).json({ success: false, message: "Forbidden" });
       }
 

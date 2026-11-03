@@ -1,9 +1,22 @@
 import { Router, Response } from "express";
+import { z } from "zod";
 import { prisma } from "../../utils/prisma.js";
 import { serializeMediaAsset } from "../../platform/serializer.js";
 import { buildPaginatedResponse, decodeCursor } from "../../platform/pagination.js";
+import { requireAuth, requirePermission, AuthRequest } from "../../middleware/auth.middleware.js";
+import { uploadVideoFiles } from "../../middleware/upload.middleware.js";
+import {
+  getVideoThumbnailUrl,
+  uploadFileToCloudinary,
+  uploadImageToCloudinary,
+} from "../../services/cloudinary.service.js";
 
 const router = Router();
+
+const createVideoSchema = z.object({
+  title: z.string().trim().min(3).max(120),
+  description: z.string().trim().max(1000).optional().default(""),
+});
 
 // GET /api/v1/content/videos
 router.get("/content/videos", async (req, res: Response, next) => {
@@ -66,6 +79,7 @@ router.get("/content/videos", async (req, res: Response, next) => {
         durationSeconds: v.durationSeconds || 0,
         thumbnail,
         playbackUrl: v.playbackUrl,
+        videoUrl: v.playbackUrl,
         publishedAt: v.publishedAt.toISOString(),
       };
     });
@@ -79,5 +93,71 @@ router.get("/content/videos", async (req, res: Response, next) => {
     next(err);
   }
 });
+
+router.post(
+  "/content/videos",
+  requireAuth,
+  requirePermission("sermons.media.manage"),
+  uploadVideoFiles,
+  async (req: AuthRequest, res: Response, next) => {
+    try {
+      const parsed = createVideoSchema.safeParse(req.body);
+      const files = req.files as
+        | { video?: Express.Multer.File[]; thumbnail?: Express.Multer.File[] }
+        | undefined;
+      const video = files?.video?.[0];
+      const thumbnail = files?.thumbnail?.[0];
+
+      if (!parsed.success || !video) {
+        return res.status(400).json({
+          success: false,
+          message: "Title and a video file are required",
+          errors: parsed.success ? undefined : parsed.error.flatten(),
+        });
+      }
+
+      const videoUpload = await uploadFileToCloudinary(video.buffer, {
+        folder: "my-fellow/videos",
+        resource_type: "video",
+      });
+      const thumbnailUpload = thumbnail
+        ? await uploadImageToCloudinary(thumbnail.buffer, {
+            folder: "my-fellow/video-thumbnails",
+          })
+        : null;
+
+      const item = await prisma.contentItem.create({
+        data: {
+          kind: "video",
+          createdBy: req.user!.sub,
+          title: parsed.data.title,
+          description: parsed.data.description,
+          thumbnailUrl:
+            thumbnailUpload?.secure_url ||
+            getVideoThumbnailUrl(videoUpload.public_id),
+          playbackUrl: videoUpload.secure_url,
+          provider: "cloudinary",
+          providerRef: videoUpload.public_id,
+          status: "published",
+          publishedAt: new Date(),
+        },
+      });
+
+      return res.status(201).json({
+        success: true,
+        data: {
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          thumbnail: item.thumbnailUrl,
+          playbackUrl: item.playbackUrl,
+          publishedAt: item.publishedAt.toISOString(),
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 export default router;

@@ -75,3 +75,25 @@ export const uploadDevotionFiles = devotionUpload.fields([
   { name: "image", maxCount: 1 },
   { name: "media", maxCount: 1 },
 ]);
+
+export const videoUpload = multer({
+  storage,
+  fileFilter: (_req, file, cb) => {
+    if (file.fieldname === "video" && file.mimetype.startsWith("video/")) {
+      return cb(null, true);
+    }
+    if (file.fieldname === "thumbnail" && file.mimetype.startsWith("image/")) {
+      return cb(null, true);
+    }
+    return cb(new Error("Only video files and an optional image thumbnail are allowed"));
+  },
+  limits: {
+    fileSize: 250 * 1024 * 1024,
+    files: 2,
+  },
+});
+
+export const uploadVideoFiles = videoUpload.fields([
+  { name: "video", maxCount: 1 },
+  { name: "thumbnail", maxCount: 1 },
+]);

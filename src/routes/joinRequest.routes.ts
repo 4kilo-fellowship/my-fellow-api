@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { JoinRequestController } from "../controllers/joinRequest.controller.js";
-import { requireAuth, requireAdmin } from "../middleware/auth.middleware.js";
+import { requireAuth, requirePermission } from "../middleware/auth.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
 import {
   createJoinRequestSchema,
@@ -20,12 +20,12 @@ router.post(
 router.get("/my", requireAuth, JoinRequestController.getMyRequests);
 
 // Admin routes
-router.get("/", requireAuth, requireAdmin, JoinRequestController.getAll);
+router.get("/", requireAuth, requirePermission("members.view"), JoinRequestController.getAll);
 
 router.patch(
   "/:requestId/status",
   requireAuth,
-  requireAdmin,
+  requirePermission("members.edit"),
   validate(updateJoinRequestStatusSchema),
   JoinRequestController.updateStatus,
 );

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import ProgramController from "../controllers/program.controller.js";
 import { uploadSingle } from "../middleware/upload.middleware.js";
-import { requireAuth, requireAdmin } from "../middleware/auth.middleware.js";
+import { requireAuth, requirePermission } from "../middleware/auth.middleware.js";
 
 const router = Router();
 
@@ -11,7 +11,7 @@ router.get("/:id", ProgramController.getProgramById);
 router.post(
   "/",
   requireAuth,
-  requireAdmin,
+  requirePermission("announcements.publish"),
   uploadSingle,
   ProgramController.createProgram,
 );
@@ -19,7 +19,7 @@ router.post(
 router.put(
   "/:id",
   requireAuth,
-  requireAdmin,
+  requirePermission("announcements.publish"),
   uploadSingle,
   ProgramController.updateProgram,
 );
@@ -27,7 +27,7 @@ router.put(
 router.delete(
   "/:id",
   requireAuth,
-  requireAdmin,
+  requirePermission("announcements.publish"),
   ProgramController.deleteProgram,
 );
 

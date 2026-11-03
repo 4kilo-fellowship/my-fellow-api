@@ -4,7 +4,7 @@ import {
   uploadSingle,
   uploadMultiple,
 } from "../middleware/upload.middleware.js";
-import { requireAuth, requireAdmin } from "../middleware/auth.middleware.js";
+import { requireAuth, requirePermission } from "../middleware/auth.middleware.js";
 
 const router = Router();
 
@@ -12,7 +12,7 @@ const router = Router();
 router.post(
   "/image",
   requireAuth,
-  requireAdmin,
+  requirePermission("sermons.media.manage"),
   uploadSingle,
   UploadController.uploadImage,
 );
@@ -21,7 +21,7 @@ router.post(
 router.post(
   "/images",
   requireAuth,
-  requireAdmin,
+  requirePermission("sermons.media.manage"),
   uploadMultiple,
   UploadController.uploadImages,
 );
@@ -30,7 +30,7 @@ router.post(
 router.delete(
   "/image/:publicId",
   requireAuth,
-  requireAdmin,
+  requirePermission("sermons.media.manage"),
   UploadController.deleteImage,
 );
 

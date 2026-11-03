@@ -13,6 +13,7 @@ export class AuthService {
     _id: any;
     phoneNumber: string;
     role: string;
+    authVersion?: number;
   }): Promise<string> {
     try {
       const ctx = await auth.$context;
@@ -31,6 +32,7 @@ export class AuthService {
       sub: user._id,
       phoneNumber: user.phoneNumber,
       role: user.role,
+      authVersion: user.authVersion ?? 0,
     });
   }
 
@@ -120,7 +122,8 @@ export class AuthService {
       profileImage: profileImageUrl,
       password: dto.password,
       role:
-        normalizedPhone === process.env.ADMIN_PHONE_NUMBER ? "admin" : "user",
+        "member",
+      authVersion: 0,
     });
 
     await user.save();
@@ -209,13 +212,6 @@ export class AuthService {
 
   static async findById(id: string): Promise<IUserDocument | null> {
     const user = await UserModel.findById(id).select("-password").populate("team", "name");
-    if (user && process.env.ADMIN_PHONE_NUMBER) {
-      const adminPhone = toLocalPhone(process.env.ADMIN_PHONE_NUMBER);
-      if (adminPhone && toLocalPhone(user.phoneNumber) === adminPhone && user.role !== "admin") {
-        user.role = "admin";
-        await user.save();
-      }
-    }
     return user;
   }
 
@@ -332,8 +328,6 @@ export class AuthService {
     }
 
     user.phoneNumber = normalizedPhone;
-    user.role =
-      normalizedPhone === process.env.ADMIN_PHONE_NUMBER ? "admin" : "user";
     await user.save();
     await user.populate("team", "name");
 
@@ -440,23 +434,15 @@ export class AuthService {
     let user = await UserModel.findOne({ phoneNumber: normalizedPhone });
     let isNewUser = false;
 
-    const adminPhone = process.env.ADMIN_PHONE_NUMBER
-      ? toLocalPhone(process.env.ADMIN_PHONE_NUMBER)
-      : null;
-    const isAdminPhone = !!adminPhone && normalizedPhone === adminPhone;
-
     if (!user) {
       user = await UserModel.create({
         phoneNumber: normalizedPhone,
         fullName: "",
-        role: isAdminPhone ? "admin" : "user",
+        role: "member",
+        authVersion: 0,
       });
       isNewUser = true;
     } else {
-      if (isAdminPhone && user.role !== "admin") {
-        user.role = "admin";
-        await user.save();
-      }
       if (!user.fullName || !user.department) {
         isNewUser = true;
       }
@@ -640,4 +626,3 @@ export class AuthService {
     };
   }
 }
-

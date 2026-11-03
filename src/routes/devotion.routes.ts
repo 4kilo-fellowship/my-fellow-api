@@ -2,7 +2,7 @@ import { Router } from "express";
 import DevotionController from "../controllers/devotion.controller.js";
 import WriterRequestController from "../controllers/writerRequest.controller.js";
 import { uploadDevotionFiles } from "../middleware/upload.middleware.js";
-import { requireAuth, requireAdmin } from "../middleware/auth.middleware.js";
+import { requireAuth, requirePermission } from "../middleware/auth.middleware.js";
 
 const router = Router();
 
@@ -25,7 +25,7 @@ router.get(
 router.get(
   "/writer-requests",
   requireAuth,
-  requireAdmin,
+  requirePermission("sermons.media.manage"),
   WriterRequestController.getAll
 );
 
@@ -33,7 +33,7 @@ router.get(
 router.patch(
   "/writer-requests/:id/status",
   requireAuth,
-  requireAdmin,
+  requirePermission("sermons.media.manage"),
   WriterRequestController.updateStatus
 );
 
@@ -54,7 +54,7 @@ router.post("/:id/like", requireAuth, DevotionController.likeDevotion);
 router.post(
   "/",
   requireAuth,
-  requireAdmin,
+  requirePermission("sermons.media.manage"),
   uploadDevotionFiles,
   DevotionController.createDevotion,
 );
@@ -63,7 +63,7 @@ router.post(
 router.put(
   "/:id",
   requireAuth,
-  requireAdmin,
+  requirePermission("sermons.media.manage"),
   uploadDevotionFiles,
   DevotionController.updateDevotion,
 );
@@ -72,7 +72,7 @@ router.put(
 router.delete(
   "/:id",
   requireAuth,
-  requireAdmin,
+  requirePermission("sermons.media.manage"),
   DevotionController.deleteDevotion,
 );
 

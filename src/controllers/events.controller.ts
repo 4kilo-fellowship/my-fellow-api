@@ -10,6 +10,8 @@ import {
   updateEventSchema,
 } from "../validators/event.validator.js";
 import { createRegistrationSchema } from "../validators/registration.validator.js";
+import { normalizeRole } from "../rbac/permissions.js";
+import { roleHasPermission } from "../rbac/permissions.js";
 
 export class EventsController {
   static async createEvent(req: Request, res: Response) {
@@ -66,11 +68,16 @@ export class EventsController {
     try {
       const sort = (req.query.sort as string) || "asc";
       const sortOrder = sort === "desc" ? -1 : 1;
-      const isAdmin = (req as any).user?.role === "admin";
+      const viewer = (req as AuthRequest).user;
+      const canViewUnpublished = roleHasPermission(
+        viewer?.role,
+        "events.view",
+        viewer?.permissions,
+      ) && normalizeRole(viewer?.role) !== "member";
 
       const query: any = { isDeleted: { $ne: true } };
 
-      if (!isAdmin) {
+      if (!canViewUnpublished) {
         query.$or = [
           { scheduledAt: { $exists: false } },
           { scheduledAt: { $eq: null } },
@@ -95,6 +102,19 @@ export class EventsController {
       const id = routeParam(req.params.id);
       const event = await EventModel.findById(id).lean();
       if (!event) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Event not found" });
+      }
+      const viewer = (req as AuthRequest).user;
+      const isPrivileged =
+        viewer &&
+        ["super_admin", "leader"].includes(normalizeRole(viewer.role));
+      if (
+        !isPrivileged &&
+        event.scheduledAt &&
+        event.scheduledAt > new Date()
+      ) {
         return res
           .status(404)
           .json({ success: false, message: "Event not found" });
@@ -335,7 +355,7 @@ export class EventsController {
   static async generatePoster(req: AuthRequest, res: Response) {
     try {
       const admin = req.user;
-      if (!admin || admin.role !== "admin") {
+      if (!admin || !roleHasPermission(admin.role, "events.manage", admin.permissions)) {
         return res.status(403).json({
           success: false,
           message: "Only admins can generate posters",

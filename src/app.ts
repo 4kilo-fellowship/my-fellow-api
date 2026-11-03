@@ -18,6 +18,7 @@ import supportRoutes from "./routes/support.routes.js";
 import teamRoutes from "./routes/team.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import v1Router from "./routes/v1.routes.js";
+import rbacRoutes from "./routes/rbac.routes.js";
 import { errorMiddleware } from "./platform/errors.js";
 import job from "./utils/cron.js";
 
@@ -132,6 +133,7 @@ app.use("/api/upload", uploadLimiter, uploadRoutes);
 app.use("/api/events", eventsLimiter, eventsRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/rbac", rbacRoutes);
 app.use("/api/teams", teamLimiter, teamRoutes);
 app.use("/api/join-requests", joinRequestRoutes);
 app.use("/api/programs", programLimiter, programRoutes);

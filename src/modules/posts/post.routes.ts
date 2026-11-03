@@ -6,6 +6,7 @@ import { AppError } from "../../platform/errors.js";
 import { hydratePosts } from "./post.service.js";
 import { buildPaginatedResponse, decodeCursor } from "../../platform/pagination.js";
 import { routeParam } from "../../utils/routeParam.js";
+import { normalizeRole } from "../../rbac/permissions.js";
 import { recordStreakCheckIn } from "../streaks/streak.service.js";
 
 const router = Router();
@@ -337,8 +338,10 @@ router.delete("/posts/:id", requireAuth, async (req: AuthRequest, res: Response,
     const post = await prisma.post.findUnique({ where: { id } });
     if (!post || post.deletedAt) throw AppError.notFound("Post not found", "POST_NOT_FOUND");
 
-    const isAdmin = req.user?.role === "admin";
-    if (post.authorId !== userId && !isAdmin) {
+    const isPrivileged = ["super_admin", "leader"].includes(
+      normalizeRole(req.user?.role),
+    );
+    if (post.authorId !== userId && !isPrivileged) {
       throw AppError.forbidden("You can only delete your own posts", "NOT_AUTHOR");
     }
 

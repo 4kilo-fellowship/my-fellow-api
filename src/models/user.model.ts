@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import mongoose, { Document, Model, Schema } from "mongoose";
+import { ROLES, Role } from "../rbac/permissions.js";
 
 export interface IUser {
   fullName: string;
@@ -10,7 +11,8 @@ export interface IUser {
   telegramUserName?: string | null;
   profileImage?: string | null;
   password?: string | null;
-  role: "admin" | "user";
+  role: Role | "admin" | "user";
+  authVersion: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -35,7 +37,12 @@ const UserSchema = new Schema<IUserDocument>(
     telegramUserName: { type: String, default: null },
     profileImage: { type: String, default: null },
     password: { type: String, required: false, default: null },
-    role: { type: String, enum: ["admin", "user"], default: "user" },
+    role: {
+      type: String,
+      enum: [...ROLES, "admin", "user"],
+      default: "member",
+    },
+    authVersion: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

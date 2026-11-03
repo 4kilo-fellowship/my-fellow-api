@@ -8,9 +8,11 @@ import RegistrationModel from "../models/registration.model.js";
 import TeamModel from "../models/team.model.js";
 import { TransactionModel } from "../models/transaction.model.js";
 import { UserModel } from "../models/user.model.js";
+import { AuthRequest } from "../middleware/auth.middleware.js";
+import { roleHasPermission } from "../rbac/permissions.js";
 
 export class AdminController {
-  static async getAllUsers(req: Request, res: Response) {
+  static async getAllUsers(req: AuthRequest, res: Response) {
     try {
       const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
       const limit = Math.max(
@@ -45,9 +47,21 @@ export class AdminController {
         UserModel.countDocuments(query),
       ]);
 
+      const canViewContact = roleHasPermission(
+        req.user?.role,
+        "members.contact.view",
+        req.user?.permissions,
+      );
+      const safeUsers = canViewContact
+        ? users
+        : users.map((user) => {
+            const { phoneNumber, telegramUserName, ...safeUser } = user as any;
+            return safeUser;
+          });
+
       return res.status(200).json({
         success: true,
-        data: users,
+        data: safeUsers,
         pagination: {
           page,
           limit,

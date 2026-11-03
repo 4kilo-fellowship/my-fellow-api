@@ -456,6 +456,7 @@ model HighlightItem {
 model ContentItem {
   id               String   @id @default(uuid())
   kind             String   @default("video")
+  createdBy        String?  @map("created_by")
   title            String
   description      String?
   durationSeconds  Int?     @map("duration_seconds")
@@ -467,6 +468,8 @@ model ContentItem {
   publishedAt      DateTime @default(now()) @map("published_at")
   status           String   @default("published")
 
+  @@index([kind, status, publishedAt(sort: Desc)])
+  @@index([createdBy])
   @@map("content_items")
 }
 

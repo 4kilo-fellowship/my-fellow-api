@@ -54,7 +54,11 @@ router.get("/me", requireAuth, async (req: AuthRequest, res: Response) => {
           displayName,
           department: mongoUser?.department || "Engineering",
           studyYear: mongoUser?.yearOfStudy ? parseInt(mongoUser.yearOfStudy, 10) || 3 : 3,
-          fellowshipRole: mongoUser?.role === "admin" ? "Fellowship Admin" : "Fellowship Member",
+          fellowshipRole: ["admin", "super_admin", "leader"].includes(
+            String(mongoUser?.role),
+          )
+            ? "Fellowship Leader"
+            : "Fellowship Member",
         },
         include: {
           links: true,

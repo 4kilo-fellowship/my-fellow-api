@@ -10,12 +10,14 @@
     "dev": "nodemon --exec tsx src/server.ts",
     "build": "prisma generate && tsc",
     "start": "node dist/server.js",
-    "test": "echo \"Warning: no test specified\" && exit 0",
+    "test": "tsx --test test/**/*.test.ts",
     "lint": "prisma generate && tsc --noEmit",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "rbac:migrate": "tsx scripts/migrate-rbac.ts",
+    "rbac:rollback": "tsx scripts/rollback-rbac.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

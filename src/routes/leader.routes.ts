@@ -1,7 +1,7 @@
 import { Router } from "express";
 import LeaderController from "../controllers/leader.controller.js";
 import { uploadSingle } from "../middleware/upload.middleware.js";
-import { requireAuth, requireAdmin } from "../middleware/auth.middleware.js";
+import { requireAuth, requirePermission } from "../middleware/auth.middleware.js";
 
 const router = Router();
 
@@ -11,7 +11,7 @@ router.get("/:id", LeaderController.getLeaderById);
 router.post(
   "/",
   requireAuth,
-  requireAdmin,
+  requirePermission("members.edit"),
   uploadSingle,
   LeaderController.createLeader,
 );
@@ -19,11 +19,11 @@ router.post(
 router.put(
   "/:id",
   requireAuth,
-  requireAdmin,
+  requirePermission("members.edit"),
   uploadSingle,
   LeaderController.updateLeader,
 );
 
-router.delete("/:id", requireAuth, requireAdmin, LeaderController.deleteLeader);
+router.delete("/:id", requireAuth, requirePermission("members.edit"), LeaderController.deleteLeader);
 
 export default router;

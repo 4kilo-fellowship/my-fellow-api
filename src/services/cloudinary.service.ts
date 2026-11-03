@@ -167,6 +167,17 @@ export const deleteImageFromCloudinary = async (
   }
 };
 
+export const getVideoThumbnailUrl = (publicId: string): string => {
+  return cloudinary.v2.url(publicId, {
+    resource_type: "video",
+    secure: true,
+    transformation: [
+      { width: 640, height: 360, crop: "fill" },
+      { fetch_format: "jpg" },
+    ],
+  });
+};
+
 /**
  * Extract public ID from any Cloudinary URL (images, audio, raw files).
  */

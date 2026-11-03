@@ -1,7 +1,12 @@
 import { Router } from "express";
 import TeamController from "../controllers/team.controller.js";
 import { upload } from "../middleware/upload.middleware.js";
-import { requireAuth, requireAdmin } from "../middleware/auth.middleware.js";
+import {
+  requireAuth,
+  requireMinimumRole,
+  requirePermission,
+  requireTeamScope,
+} from "../middleware/auth.middleware.js";
 
 const router = Router();
 
@@ -16,7 +21,7 @@ router.get("/:id", TeamController.getTeamById);
 router.post(
   "/",
   requireAuth,
-  requireAdmin,
+  requireMinimumRole("leader"),
   uploadTeamPhotos,
   TeamController.createTeam,
 );
@@ -24,11 +29,18 @@ router.post(
 router.put(
   "/:id",
   requireAuth,
-  requireAdmin,
+  requirePermission("teams.manage"),
+  requireTeamScope("id"),
   uploadTeamPhotos,
   TeamController.updateTeam,
 );
 
-router.delete("/:id", requireAuth, requireAdmin, TeamController.deleteTeam);
+router.delete(
+  "/:id",
+  requireAuth,
+  requirePermission("teams.manage"),
+  requireTeamScope("id"),
+  TeamController.deleteTeam,
+);
 
 export default router;

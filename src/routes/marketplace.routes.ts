@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth, requireAdmin } from "../middleware/auth.middleware.js";
+import { requireAuth, requirePermission } from "../middleware/auth.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
 import { uploadMultiple } from "../middleware/upload.middleware.js";
 import {
@@ -19,7 +19,7 @@ router.get("/products/:id", ProductController.getById);
 router.post(
   "/products",
   requireAuth,
-  requireAdmin,
+  requirePermission("finance.view"),
   uploadMultiple,
   validate(createProductSchema),
   ProductController.create,
@@ -28,7 +28,7 @@ router.post(
 router.put(
   "/products/:id",
   requireAuth,
-  requireAdmin,
+  requirePermission("finance.view"),
   uploadMultiple,
   validate(updateProductSchema),
   ProductController.update,
@@ -37,7 +37,7 @@ router.put(
 router.delete(
   "/products/:id",
   requireAuth,
-  requireAdmin,
+  requirePermission("finance.view"),
   ProductController.remove,
 );
 
@@ -50,14 +50,14 @@ router.post(
 
 router.get("/orders/my", requireAuth, OrderController.getMyOrders);
 
-router.get("/orders", requireAuth, requireAdmin, OrderController.getAll);
+router.get("/orders", requireAuth, requirePermission("finance.view"), OrderController.getAll);
 
 router.get("/orders/:id", requireAuth, OrderController.getById);
 
 router.patch(
   "/orders/:id/status",
   requireAuth,
-  requireAdmin,
+  requirePermission("finance.view"),
   validate(updateOrderStatusSchema),
   OrderController.updateStatus,
 );
