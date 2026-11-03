@@ -25,6 +25,7 @@
         "express": "^5.2.1",
         "express-rate-limit": "^8.7.0",
         "helmet": "^8.3.0",
+        "jami-sdk": "^0.6.0",
         "jsonwebtoken": "^9.0.3",
         "mongoose": "^9.10.2",
         "multer": "^2.4.0",
@@ -479,6 +480,8 @@
     "is-property": ["is-property@1.0.2", "", {}, "sha512-Ks/IoX00TtClbGQr4TWXemAnktAQvYB7HzcCxDGqEZU6oCmb2INHuOoKxbtR+HFkmYWBKv/dOZtGRiAjDhj92g=="],
 
     "isexe": ["isexe@2.0.0", "", {}, "sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw=="],
+
+    "jami-sdk": ["jami-sdk@0.6.0", "", {}, "sha512-MR0T0L7iTIBKWjeQ/lbieHwBGN/98ciKPbWDpx/boxj47tFLbrNYssP/6z2FP41vO7KtF3ymj0gPJ7mlwP5IfA=="],
 
     "jiti": ["jiti@2.7.0", "", { "bin": "lib/jiti-cli.mjs" }, "sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ=="],
 

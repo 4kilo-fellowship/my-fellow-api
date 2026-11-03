@@ -9,6 +9,8 @@ export enum TransactionStatus {
 export interface ITransaction {
   userId: mongoose.Types.ObjectId;
   tx_ref: string;
+  sessionId?: string;
+  provider?: "chapa" | "jami";
   amount: number;
   reason: string;
   status: TransactionStatus;
@@ -22,6 +24,8 @@ const TransactionSchema = new Schema<ITransactionDocument>(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     tx_ref: { type: String, required: true, unique: true },
+    sessionId: { type: String, sparse: true, index: true },
+    provider: { type: String, enum: ["chapa", "jami"], default: "jami" },
     amount: { type: Number, required: true },
     reason: { type: String, default: "donation" },
     status: {
