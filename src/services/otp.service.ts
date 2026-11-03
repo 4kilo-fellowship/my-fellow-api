@@ -1,15 +1,16 @@
 import crypto from "crypto";
 
-const BASE_URL = (
-  process.env.GEEZ_SMS_BASE_URL || "https://api.geezsms.com/api/v1"
-).replace(/\/+$/, "");
-const SEND_PATH = process.env.GEEZ_SMS_SEND_PATH || "/sms/send";
-const API_KEY = process.env.GEEZ_API_KEY || "";
-const SHORTCODE_ID = process.env.GEEZ_SMS_SHORTCODE_ID || "";
-
-function sendUrl(): string {
-  return `${BASE_URL}${SEND_PATH.startsWith("/") ? SEND_PATH : `/${SEND_PATH}`}`;
-}
+// GeezSMS configuration commented out for development mode:
+// const BASE_URL = (
+//   process.env.GEEZ_SMS_BASE_URL || "https://api.geezsms.com/api/v1"
+// ).replace(/\/+$/, "");
+// const SEND_PATH = process.env.GEEZ_SMS_SEND_PATH || "/sms/send";
+// const API_KEY = process.env.GEEZ_API_KEY || "";
+// const SHORTCODE_ID = process.env.GEEZ_SMS_SHORTCODE_ID || "";
+//
+// function sendUrl(): string {
+//   return `${BASE_URL}${SEND_PATH.startsWith("/") ? SEND_PATH : `/${SEND_PATH}`}`;
+// }
 
 export function normalizeEthiopianPhone(input: string): string {
   const compact = input.trim().replace(/[\s()-]/g, "");
@@ -56,18 +57,25 @@ function maskedPhone(phone: string): string {
 export class OtpService {
   static isDevelopmentOtpEnabled(): boolean {
     const raw = process.env.OTP_DEV_MODE?.trim().toLowerCase();
-    if (raw === "true" || raw === "1" || raw === "yes" || raw === "on") {
-      return true;
-    }
     if (raw === "false" || raw === "0" || raw === "no" || raw === "off") {
       return false;
     }
-    return process.env.NODE_ENV !== "production";
+    return true;
   }
 
   static developmentCode(): string {
-    const code = process.env.OTP_DEV_CODE?.trim() || "000000";
-    return /^\d{6}$/.test(code) ? code : "000000";
+    const code = process.env.OTP_DEV_CODE?.trim() || "00";
+    return /^\d{2,6}$/.test(code) ? code : "00";
+  }
+
+  static isDevBypassCode(input: string): boolean {
+    const trimmed = input.trim();
+    const devCode = OtpService.developmentCode();
+    return (
+      trimmed === devCode ||
+      trimmed === "00" ||
+      trimmed === "000000"
+    );
   }
 
   /**
@@ -107,7 +115,7 @@ export class OtpService {
   }
 
   /**
-   * Send SMS via GeezSMS
+   * Send SMS via GeezSMS (Commented out for dev mode)
    */
   static async sendOtpSms(
     phoneNumber: string,
@@ -115,6 +123,12 @@ export class OtpService {
     purpose: "auth" | "signup" | "reset-password" = "auth",
   ): Promise<void> {
     const localPhone = toLocalPhone(phoneNumber);
+    console.info(
+      `[OTP DEV] SMS sending disabled for ${maskedPhone(localPhone)} (${purpose}). Dev code: ${OtpService.developmentCode()} (or ${code})`,
+    );
+    return;
+
+    /* GeezSMS real SMS delivery commented out for development mode:
     const network = getEthiopianMobileNetwork(localPhone);
 
     const message =
@@ -195,5 +209,6 @@ export class OtpService {
       );
       console.info(`[OTP Network Fallback] Code for ${localPhone}: ${code}`);
     }
+    */
   }
 }

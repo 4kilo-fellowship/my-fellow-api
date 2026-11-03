@@ -357,15 +357,19 @@ export class AuthService {
       throw new Error("Enter a valid Ethiopian phone number (e.g. 09... or 07...)");
     }
 
-    // Rate-limit: Check if an active OTP was requested recently (less than 60 seconds ago)
-    const recentRecord = await OtpRecordModel.findOne({
-      phoneNumber: normalizedPhone,
-      purpose: "auth",
-      createdAt: { $gt: new Date(Date.now() - 60 * 1000) },
-    });
+    const devMode = OtpService.isDevelopmentOtpEnabled();
 
-    if (recentRecord) {
-      throw new Error("Please wait 60 seconds before requesting another code.");
+    // Rate-limit: Check if an active OTP was requested recently (less than 60 seconds ago)
+    if (!devMode) {
+      const recentRecord = await OtpRecordModel.findOne({
+        phoneNumber: normalizedPhone,
+        purpose: "auth",
+        createdAt: { $gt: new Date(Date.now() - 60 * 1000) },
+      });
+
+      if (recentRecord) {
+        throw new Error("Please wait 60 seconds before requesting another code.");
+      }
     }
 
     // Invalidate prior codes
@@ -374,11 +378,11 @@ export class AuthService {
       purpose: "auth",
     });
 
-    const code = OtpService.isDevelopmentOtpEnabled()
+    const code = devMode
       ? OtpService.developmentCode()
       : OtpService.generateSecureCode(6);
-    if (!/^\d{6}$/.test(code)) {
-      throw new Error("OTP_DEV_CODE must contain exactly 6 digits.");
+    if (!/^\d{2,6}$/.test(code)) {
+      throw new Error("OTP_DEV_CODE must contain 2 to 6 digits.");
     }
     const codeHash = OtpService.hashSecret(code);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
@@ -402,6 +406,9 @@ export class AuthService {
 
   static async verifyPhoneAuthOtp(phoneNumber: string, code: string) {
     const normalizedPhone = AuthService.normalizePhone(phoneNumber);
+    const inputCode = code.trim();
+    const devMode = OtpService.isDevelopmentOtpEnabled();
+    const isDevCodeMatch = devMode && OtpService.isDevBypassCode(inputCode);
 
     const record = await OtpRecordModel.findOne({
       phoneNumber: normalizedPhone,
@@ -409,42 +416,42 @@ export class AuthService {
       expiresAt: { $gt: new Date() },
     });
 
-    if (!record) {
+    if (!record && !isDevCodeMatch) {
       throw new Error("Verification code has expired or was not requested. Please request a new code.");
     }
 
-    if (record.attempts >= record.maxAttempts) {
+    if (record && !isDevCodeMatch && record.attempts >= record.maxAttempts) {
       await OtpRecordModel.deleteOne({ _id: record._id });
       throw new Error("Too many failed attempts. For your security, this code has been revoked.");
     }
 
-    const inputCode = code.trim();
-    const devMode = OtpService.isDevelopmentOtpEnabled();
-    const devCode = OtpService.developmentCode();
-    const isValid = devMode
-      ? OtpService.timingSafeEqual(inputCode, devCode) ||
-        OtpService.timingSafeEqual(
-          OtpService.hashSecret(inputCode),
-          record.codeHash,
-        )
-      : OtpService.timingSafeEqual(
-          OtpService.hashSecret(inputCode),
-          record.codeHash,
-        );
+    const isValid =
+      isDevCodeMatch ||
+      (record
+        ? OtpService.timingSafeEqual(
+            OtpService.hashSecret(inputCode),
+            record.codeHash,
+          )
+        : false);
 
     if (!isValid) {
-      record.attempts += 1;
-      await record.save();
-      const remaining = record.maxAttempts - record.attempts;
-      throw new Error(
-        remaining > 0
-          ? `Invalid verification code. ${remaining} attempt(s) remaining.`
-          : "Invalid verification code. Maximum attempts exceeded."
-      );
+      if (record) {
+        record.attempts += 1;
+        await record.save();
+        const remaining = record.maxAttempts - record.attempts;
+        throw new Error(
+          remaining > 0
+            ? `Invalid verification code. ${remaining} attempt(s) remaining.`
+            : "Invalid verification code. Maximum attempts exceeded."
+        );
+      }
+      throw new Error("Invalid verification code.");
     }
 
     // Delete record on successful verification
-    await OtpRecordModel.deleteOne({ _id: record._id });
+    if (record) {
+      await OtpRecordModel.deleteOne({ _id: record._id });
+    }
 
     // Find or create user
     let user = await UserModel.findOne({ phoneNumber: normalizedPhone });
@@ -503,15 +510,19 @@ export class AuthService {
       }
     }
 
-    // Rate-limit: Check if an active OTP was requested recently (less than 60 seconds ago)
-    const recentRecord = await OtpRecordModel.findOne({
-      phoneNumber: normalizedPhone,
-      purpose,
-      createdAt: { $gt: new Date(Date.now() - 60 * 1000) },
-    });
+    const devMode = OtpService.isDevelopmentOtpEnabled();
 
-    if (recentRecord) {
-      throw new Error("Please wait 60 seconds before requesting another code.");
+    // Rate-limit: Check if an active OTP was requested recently (less than 60 seconds ago)
+    if (!devMode) {
+      const recentRecord = await OtpRecordModel.findOne({
+        phoneNumber: normalizedPhone,
+        purpose,
+        createdAt: { $gt: new Date(Date.now() - 60 * 1000) },
+      });
+
+      if (recentRecord) {
+        throw new Error("Please wait 60 seconds before requesting another code.");
+      }
     }
 
     // Invalidate any prior active codes for this phone & purpose
@@ -520,7 +531,9 @@ export class AuthService {
       purpose,
     });
 
-    const code = OtpService.generateSecureCode(6);
+    const code = devMode
+      ? OtpService.developmentCode()
+      : OtpService.generateSecureCode(6);
     const codeHash = OtpService.hashSecret(code);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
@@ -547,24 +560,37 @@ export class AuthService {
     purpose: "signup" | "reset-password" = "signup"
   ) {
     const normalizedPhone = toLocalPhone(phoneNumber);
+    const inputCode = code.trim();
+    const devMode = OtpService.isDevelopmentOtpEnabled();
+    const isDevCodeMatch = devMode && OtpService.isDevBypassCode(inputCode);
 
-    const record = await OtpRecordModel.findOne({
+    let record = await OtpRecordModel.findOne({
       phoneNumber: normalizedPhone,
       purpose,
       expiresAt: { $gt: new Date() },
     });
 
+    if (!record && isDevCodeMatch) {
+      record = await OtpRecordModel.create({
+        phoneNumber: normalizedPhone,
+        codeHash: OtpService.hashSecret(inputCode),
+        purpose,
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      });
+    }
+
     if (!record) {
       throw new Error("Verification code has expired or was not requested. Please request a new code.");
     }
 
-    if (record.attempts >= record.maxAttempts) {
+    if (!isDevCodeMatch && record.attempts >= record.maxAttempts) {
       await OtpRecordModel.deleteOne({ _id: record._id });
       throw new Error("Too many failed attempts. For your security, this code has been revoked.");
     }
 
-    const inputHash = OtpService.hashSecret(code.trim());
-    const isValid = OtpService.timingSafeEqual(inputHash, record.codeHash);
+    const inputHash = OtpService.hashSecret(inputCode);
+    const isValid =
+      isDevCodeMatch || OtpService.timingSafeEqual(inputHash, record.codeHash);
 
     if (!isValid) {
       record.attempts += 1;

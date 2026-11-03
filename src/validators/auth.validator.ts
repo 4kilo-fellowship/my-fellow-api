@@ -35,7 +35,7 @@ export const sendPhoneAuthOtpSchema = z.object({
 
 export const verifyPhoneAuthOtpSchema = z.object({
   phoneNumber: z.string().min(8).max(15),
-  code: z.string().length(6),
+  code: z.string().min(2).max(6),
 });
 
 export const updatePhoneSchema = z.object({
@@ -50,7 +50,7 @@ export const requestOtpSchema = z.object({
 
 export const verifyOtpSchema = z.object({
   phoneNumber: z.string().min(8).max(15),
-  code: z.string().length(6),
+  code: z.string().min(2).max(6),
   purpose: z.enum(["signup", "reset-password"]).default("signup"),
 });
 
