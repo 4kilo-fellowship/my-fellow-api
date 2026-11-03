@@ -374,7 +374,12 @@ export class AuthService {
       purpose: "auth",
     });
 
-    const code = OtpService.generateSecureCode(6);
+    const code = OtpService.isDevelopmentOtpEnabled()
+      ? OtpService.developmentCode()
+      : OtpService.generateSecureCode(6);
+    if (!/^\d{6}$/.test(code)) {
+      throw new Error("OTP_DEV_CODE must contain exactly 6 digits.");
+    }
     const codeHash = OtpService.hashSecret(code);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
@@ -413,8 +418,15 @@ export class AuthService {
       throw new Error("Too many failed attempts. For your security, this code has been revoked.");
     }
 
-    const inputHash = OtpService.hashSecret(code.trim());
-    const isValid = OtpService.timingSafeEqual(inputHash, record.codeHash);
+    const inputCode = code.trim();
+    const isValid =
+      OtpService.isDevelopmentOtpEnabled() &&
+      OtpService.timingSafeEqual(inputCode, OtpService.developmentCode())
+        ? true
+        : OtpService.timingSafeEqual(
+            OtpService.hashSecret(inputCode),
+            record.codeHash,
+          );
 
     if (!isValid) {
       record.attempts += 1;

@@ -4,8 +4,7 @@ const BASE_URL = (
   process.env.GEEZ_SMS_BASE_URL || "https://api.geezsms.com/api/v1"
 ).replace(/\/+$/, "");
 const SEND_PATH = process.env.GEEZ_SMS_SEND_PATH || "/sms/send";
-const API_KEY =
-  process.env.GEEZ_API_KEY || "SnmpjxSYvDs4yeVQZMVnwBVK9vqmTBN8";
+const API_KEY = process.env.GEEZ_API_KEY || "";
 const SHORTCODE_ID = process.env.GEEZ_SMS_SHORTCODE_ID || "";
 
 function sendUrl(): string {
@@ -55,6 +54,14 @@ function maskedPhone(phone: string): string {
 }
 
 export class OtpService {
+  static isDevelopmentOtpEnabled(): boolean {
+    return process.env.NODE_ENV !== "production" && process.env.OTP_DEV_MODE !== "false";
+  }
+
+  static developmentCode(): string {
+    return process.env.OTP_DEV_CODE || "000000";
+  }
+
   /**
    * Cryptographically secure 6-digit OTP generator
    */
@@ -107,14 +114,15 @@ export class OtpService {
         ? `Your 4 Kilo Fellowship password reset code is: ${code}. It expires in 5 minutes. Never share this code.`
         : `4 Kilo Fellowship: Your verification code is ${code}. It expires in 5 minutes. Never share this code.`;
 
-    const apiKey =
-      process.env.GEEZ_API_KEY || "0qFfXN2d4ZNdFvR16rOojdvVuofpwOBV";
+    if (OtpService.isDevelopmentOtpEnabled()) {
+      console.info(`[OTP DEV] SMS disabled. Development code: ${OtpService.developmentCode()}`);
+      return;
+    }
+
+    const apiKey = process.env.GEEZ_API_KEY || "";
 
     if (!apiKey) {
-      console.warn(
-        `[OTP DEV] GEEZ_API_KEY missing. Mocking SMS for ${localPhone}: ${message}`,
-      );
-      return;
+      throw new Error("OTP provider is not configured.");
     }
 
     let cleaned = phoneNumber.replace(/[\s\-\(\)\.]/g, "");
