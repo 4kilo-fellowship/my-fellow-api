@@ -55,7 +55,9 @@ function maskedPhone(phone: string): string {
 
 export class OtpService {
   static isDevelopmentOtpEnabled(): boolean {
-    return process.env.NODE_ENV !== "production" && process.env.OTP_DEV_MODE !== "false";
+    if (process.env.OTP_DEV_MODE === "true") return true;
+    if (process.env.OTP_DEV_MODE === "false") return false;
+    return process.env.NODE_ENV !== "production";
   }
 
   static developmentCode(): string {
