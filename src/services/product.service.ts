@@ -1,21 +1,30 @@
-import { prisma } from "../utils/prisma.js";
-import type { Prisma } from "@prisma/client";
+import { Product, IProduct } from "../models/product.model.js";
 
 export class ProductService {
-  static async getAll(page: number = 1, limit: number = 20) {
+  static async getAll(page: number = 1, limit: number = 20, category?: string) {
     const skip = (page - 1) * limit;
+    const filter: Record<string, any> = {};
+
+    if (category && category !== "All") {
+      filter.category = new RegExp(`^${category}$`, "i");
+    }
 
     const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        skip,
-        take: limit,
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.product.count(),
+      Product.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(filter),
     ]);
 
+    const formattedProducts = products.map((p: any) => ({
+      ...p,
+      id: p._id.toString(),
+    }));
+
     return {
-      products,
+      products: formattedProducts,
       pagination: {
         page,
         limit,
@@ -26,18 +35,33 @@ export class ProductService {
   }
 
   static async getById(id: string) {
-    return prisma.product.findUnique({ where: { id } });
+    const product = await Product.findById(id).lean();
+    if (!product) return null;
+    return {
+      ...product,
+      id: (product as any)._id.toString(),
+    };
   }
 
-  static async create(data: Prisma.ProductCreateInput) {
-    return prisma.product.create({ data });
+  static async create(data: Partial<IProduct>) {
+    const product = await Product.create(data);
+    return product.toJSON();
   }
 
-  static async update(id: string, data: Prisma.ProductUpdateInput) {
-    return prisma.product.update({ where: { id }, data });
+  static async update(id: string, data: Partial<IProduct>) {
+    const product = await Product.findByIdAndUpdate(id, data, {
+      new: true,
+      runValidators: true,
+    }).lean();
+
+    if (!product) return null;
+    return {
+      ...product,
+      id: (product as any)._id.toString(),
+    };
   }
 
   static async remove(id: string) {
-    return prisma.product.delete({ where: { id } });
+    return Product.findByIdAndDelete(id).lean();
   }
 }

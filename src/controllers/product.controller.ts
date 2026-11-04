@@ -12,8 +12,9 @@ export class ProductController {
         100,
         Math.max(1, parseInt(req.query.limit as string) || 20),
       );
+      const category = (req.query.category as string) || undefined;
 
-      const result = await ProductService.getAll(page, limit);
+      const result = await ProductService.getAll(page, limit, category);
       return res.status(200).json({ success: true, data: result });
     } catch (error: any) {
       return res

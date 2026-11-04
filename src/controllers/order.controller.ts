@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware.js";
 import { OrderService } from "../services/order.service.js";
-import type { OrderStatus } from "@prisma/client";
+import type { OrderStatus } from "../models/order.model.js";
 import { routeParam } from "../utils/routeParam.js";
 import { normalizeRole } from "../rbac/permissions.js";
 

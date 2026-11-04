@@ -65,7 +65,7 @@ export const createOrderSchema = z.object({
     items: z
       .array(
         z.object({
-          productId: z.string().uuid("Product ID must be a valid UUID"),
+          productId: z.string().min(1, "Product ID is required"),
           quantity: z.coerce
             .number({ message: "Quantity must be a number" })
             .int("Quantity must be an integer")
