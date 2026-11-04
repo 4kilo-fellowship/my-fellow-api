@@ -1,6 +1,6 @@
 import { Response } from "express";
 import crypto from "crypto";
-import { chapaService } from "../services/chapa.service.js";
+import { JamiSignatureError } from "jami-sdk";
 import { jamiService } from "../services/jami.service.js";
 import {
   TransactionModel,
@@ -12,196 +12,10 @@ import { UserModel } from "../models/user.model.js";
 import { routeParam } from "../utils/routeParam.js";
 
 export class PaymentController {
-  static async initialize(req: AuthRequest, res: Response) {
-    try {
-      const parsed = paymentInitSchema.parse(req.body);
-      const { amount, email, reason } = parsed;
-      const userId = req.user?.sub;
-
-      if (!userId) {
-        return res
-          .status(401)
-          .json({ success: false, message: "User not authenticated" });
-      }
-
-      const user = await UserModel.findById(userId);
-      if (!user) {
-        return res
-          .status(404)
-          .json({ success: false, message: "User not found" });
-      }
-
-      const tx_ref = `fellow-tx-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
-
-      const transaction = await TransactionModel.create({
-        userId,
-        tx_ref,
-        amount,
-        reason: reason || "Donation",
-        status: TransactionStatus.PENDING,
-      });
-
-      const nameParts = user.fullName.trim().split(" ");
-      const firstName = nameParts[0];
-      const lastName =
-        nameParts.length > 1 ? nameParts.slice(1).join(" ") : "Fellow";
-
-      const chapaData = {
-        amount,
-        currency: "ETB",
-        email,
-        first_name: firstName,
-        last_name: lastName,
-        tx_ref,
-        callback_url: process.env.CHAPA_CALLBACK_URL,
-        return_url: process.env.CHAPA_RETURN_URL,
-        customization: {
-          title: "Fellowship Pay",
-          description: reason || "Donation for Fellowship services",
-        },
-      };
-
-      const response = await chapaService.initializePayment(chapaData);
-
-      return res.status(200).json({
-        success: true,
-        data: {
-          checkout_url: response.data.checkout_url,
-          tx_ref,
-          transactionId: transaction._id,
-        },
-      });
-    } catch (err: any) {
-      console.error("Payment Init Error:", err);
-
-      if (err?.name === "ZodError") {
-        return res.status(400).json({ success: false, errors: err.errors });
-      }
-
-      if (
-        err.message &&
-        (err.message.includes("validation") || err.message.startsWith("{"))
-      ) {
-        try {
-          const chapaError = JSON.parse(err.message);
-          return res.status(400).json({
-            success: false,
-            message: "Data validation failed at Chapa",
-            errors: chapaError,
-          });
-        } catch (parseErr) {}
-      }
-
-      return res.status(500).json({
-        success: false,
-        message: err.message || "Payment initialization failed",
-        error: process.env.NODE_ENV === "development" ? err : undefined,
-      });
-    }
-  }
-
-  static async verify(req: AuthRequest, res: Response) {
-    try {
-      const tx_ref = routeParam(req.params.tx_ref);
-
-      if (!tx_ref) {
-        return res.status(400).json({
-          success: false,
-          message: "Transaction reference is required",
-        });
-      }
-
-      const response = await chapaService.verifyPayment(tx_ref);
-      const transaction = await TransactionModel.findOne({ tx_ref });
-
-      if (!transaction) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Transaction not found" });
-      }
-
-      if (response.status === "success" || response.data.status === "success") {
-        if (Number(response.data.amount) !== transaction.amount) {
-          transaction.status = TransactionStatus.FAILED;
-          await transaction.save();
-          return res
-            .status(400)
-            .json({ success: false, message: "Amount mismatch detected" });
-        }
-
-        transaction.status = TransactionStatus.SUCCESS;
-        await transaction.save();
-      } else if (response.data.status === "failed") {
-        transaction.status = TransactionStatus.FAILED;
-        await transaction.save();
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: "Transaction verified",
-        data: {
-          status: transaction.status,
-          tx_ref: transaction.tx_ref,
-        },
-      });
-    } catch (err: any) {
-      return res.status(500).json({
-        success: false,
-        message: err.message || "Payment verification failed",
-      });
-    }
-  }
-
-  static async webhook(req: any, res: Response) {
-    try {
-      const signature = req.headers["x-chapa-signature"] as string;
-      const body = req.rawBody || JSON.stringify(req.body);
-
-      if (
-        !signature ||
-        !chapaService.validateWebhookSignature(body, signature)
-      ) {
-        return res
-          .status(401)
-          .json({ success: false, message: "Invalid signature" });
-      }
-
-      const { tx_ref, status, amount } = req.body;
-      const transaction = await TransactionModel.findOne({ tx_ref });
-
-      if (transaction) {
-        if (transaction.status === TransactionStatus.SUCCESS) {
-          return res.status(200).send();
-        }
-
-        if (status === "success") {
-          if (Number(amount) === transaction.amount) {
-            transaction.status = TransactionStatus.SUCCESS;
-          } else {
-            transaction.status = TransactionStatus.FAILED;
-          }
-        } else if (status === "failed") {
-          transaction.status = TransactionStatus.FAILED;
-        }
-
-        await transaction.save();
-      }
-
-      return res.status(200).send();
-    } catch (err: any) {
-      console.error("Webhook Error:", err);
-      return res
-        .status(500)
-        .json({ success: false, message: "Webhook processing failed" });
-    }
-  }
-
-  // ==================== JAMI PAYMENTS ====================
-
   static async initializeJami(req: AuthRequest, res: Response) {
     try {
       const parsed = paymentInitSchema.parse(req.body);
-      const { amount, email, reason } = parsed;
+      const { amount, email, phone, reason, returnUrl } = parsed;
       const userId = req.user?.sub;
 
       if (!userId) {
@@ -222,12 +36,16 @@ export class PaymentController {
       const checkout = await jamiService.initializeCheckout({
         amount,
         email,
-        phone: req.body.phone || user.phoneNumber,
+        phone: phone || user.phoneNumber,
+        name: user.fullName,
         reason: reason || "Donation",
-        returnUrl: req.body.returnUrl || process.env.JAMI_RETURN_URL,
+        returnUrl: returnUrl || process.env.JAMI_RETURN_URL,
         userId,
         tx_ref,
       });
+
+      const checkoutUrl =
+        "checkoutUrl" in checkout ? checkout.checkoutUrl : null;
 
       const transaction = await TransactionModel.create({
         userId,
@@ -242,7 +60,8 @@ export class PaymentController {
       return res.status(200).json({
         success: true,
         data: {
-          checkout_url: checkout.checkoutUrl,
+          checkout_url: checkoutUrl,
+          checkoutUrl: checkoutUrl,
           sessionId: checkout.sessionId,
           tx_ref,
           transactionId: transaction._id,
@@ -284,6 +103,22 @@ export class PaymentController {
           .json({ success: false, message: "Transaction not found" });
       }
 
+      // If already succeeded via webhook, return immediately
+      if (transaction.status === TransactionStatus.SUCCESS) {
+        return res.status(200).json({
+          success: true,
+          message: "Transaction status resolved",
+          data: {
+            status: transaction.status,
+            tx_ref: transaction.tx_ref,
+            sessionId: transaction.sessionId,
+            orderId: transaction.orderId || null,
+            orderStatus: "paid",
+            failure: null,
+          },
+        });
+      }
+
       const session = await jamiService.verifyCheckout(
         transaction.sessionId || sessionId,
       );
@@ -302,8 +137,14 @@ export class PaymentController {
         }
 
         transaction.status = TransactionStatus.SUCCESS;
+        if (session.orderId) {
+          transaction.orderId = session.orderId;
+        }
         await transaction.save();
-      } else if (session.status === "expired" || session.orderStatus === "failed") {
+      } else if (
+        session.status === "expired" ||
+        session.orderStatus === "failed"
+      ) {
         transaction.status = TransactionStatus.FAILED;
         await transaction.save();
       }
@@ -318,6 +159,7 @@ export class PaymentController {
           orderId: session.orderId,
           orderStatus: session.orderStatus,
           failure: session.failure,
+          attempt: session.attempt,
         },
       });
     } catch (err: any) {
@@ -339,7 +181,7 @@ export class PaymentController {
           : JSON.stringify(req.body);
 
       if (!signature) {
-        return res.status(401).json({
+        return res.status(400).json({
           success: false,
           message: "Missing x-jamidev-signature header",
         });
@@ -349,7 +191,7 @@ export class PaymentController {
 
       if (event.type === "order.completed" || event.type === "order.created") {
         const orderData = event.data;
-        const { sessionId, amount, status, metadata } = orderData;
+        const { sessionId, orderId, amount, status, metadata } = orderData;
         const tx_ref = (metadata as any)?.tx_ref;
 
         const transaction = await TransactionModel.findOne({
@@ -365,6 +207,9 @@ export class PaymentController {
           if (amount === expectedSantim) {
             if (status === "paid" || event.type === "order.completed") {
               transaction.status = TransactionStatus.SUCCESS;
+              if (orderId) {
+                transaction.orderId = orderId;
+              }
             } else if (status === "failed") {
               transaction.status = TransactionStatus.FAILED;
             }
@@ -385,6 +230,12 @@ export class PaymentController {
 
       return res.status(200).json({ received: true });
     } catch (err: any) {
+      if (err instanceof JamiSignatureError) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid webhook signature",
+        });
+      }
       console.error("Jami Webhook Error:", err);
       return res.status(400).json({
         success: false,

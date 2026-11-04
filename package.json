@@ -16,6 +16,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
+    "admin:promote": "tsx scripts/make-super-admin.ts",
     "rbac:migrate": "tsx scripts/migrate-rbac.ts",
     "rbac:rollback": "tsx scripts/rollback-rbac.ts"
   },

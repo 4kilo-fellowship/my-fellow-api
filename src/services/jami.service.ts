@@ -1,9 +1,15 @@
-import { Jami, type CheckoutStatus, type JamiWebhookEvent } from "jami-sdk";
+import {
+  Jami,
+  verifyWebhookSignature,
+  type CheckoutStatus,
+  type JamiWebhookEvent,
+} from "jami-sdk";
 
 export interface InitializeCheckoutParams {
   amount: number; // Amount in ETB
   email: string;
   phone?: string;
+  name?: string;
   reason?: string;
   returnUrl?: string;
   userId: string;
@@ -17,7 +23,9 @@ export class JamiService {
     if (!this.client) {
       const token = process.env.JAMI_TOKEN || "";
       if (!token) {
-        throw new Error("Jami API Token (JAMI_TOKEN) is not configured in .env");
+        throw new Error(
+          "Jami API Token (JAMI_TOKEN) is not configured in .env",
+        );
       }
       this.client = new Jami({ token });
     }
@@ -40,6 +48,9 @@ export class JamiService {
     if (cleaned.startsWith("0")) {
       return `251${cleaned.slice(1)}`;
     }
+    if (cleaned.startsWith("9") || cleaned.startsWith("7")) {
+      return `251${cleaned}`;
+    }
     if (cleaned.startsWith("251")) {
       return cleaned;
     }
@@ -48,8 +59,8 @@ export class JamiService {
 
   /**
    * Initializes a Jami checkout session.
-   * If gateway is omitted, Jami provides a hosted payment page allowing the user
-   * to select Telebirr, CBE Birr, M-Pesa, or card.
+   * When gateway is omitted, Jami provides a hosted payment link allowing the user
+   * to select Telebirr, CBE Birr, M-Pesa, or card, with retry support.
    */
   async initializeCheckout(params: InitializeCheckoutParams) {
     if (!process.env.JAMI_TOKEN) {
@@ -62,8 +73,20 @@ export class JamiService {
       throw new Error("Minimum transaction amount is 1 ETB (100 santim)");
     }
 
-    const description = (params.reason || "Donation to 4 Kilo Fellowship").slice(0, 120);
+    const description = (
+      params.reason?.trim() || "Donation to 4 Kilo Fellowship"
+    ).slice(0, 120);
     const normalizedPhone = this.normalizeEthiopianPhone(params.phone);
+
+    let successUrl =
+      params.returnUrl ||
+      process.env.JAMI_RETURN_URL ||
+      "https://my-fellow-api.onrender.com/api/payments/success";
+
+    if (!successUrl.includes("{CHECKOUT_ID}")) {
+      const sep = successUrl.includes("?") ? "&" : "?";
+      successUrl = `${successUrl}${sep}sessionId={CHECKOUT_ID}`;
+    }
 
     const checkout = await this.getClient().createCheckout({
       amount: amountSantim,
@@ -71,16 +94,15 @@ export class JamiService {
       customer: {
         email: params.email,
         phone: normalizedPhone,
+        name: params.name,
         externalId: params.userId,
       },
       metadata: {
         tx_ref: params.tx_ref,
         userId: params.userId,
+        reason: description,
       },
-      successUrl:
-        params.returnUrl ||
-        process.env.JAMI_RETURN_URL ||
-        "https://my-fellow-api-6v2i.onrender.com/api/payments/success",
+      successUrl,
     });
 
     return checkout;
@@ -100,13 +122,16 @@ export class JamiService {
   /**
    * Verifies the cryptographic HMAC signature of an incoming webhook from Jami.
    */
-  async verifyWebhook(payload: string, signature: string): Promise<JamiWebhookEvent> {
+  async verifyWebhook(
+    payload: string,
+    signature: string,
+  ): Promise<JamiWebhookEvent> {
     const secret = process.env.JAMI_WEBHOOK_SECRET;
     if (!secret) {
       throw new Error("JAMI_WEBHOOK_SECRET is not configured in .env");
     }
 
-    return this.getClient().webhooks.verify({
+    return verifyWebhookSignature({
       payload,
       signature,
       secret,
