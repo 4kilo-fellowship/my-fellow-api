@@ -18,17 +18,23 @@ const router = Router();
 router.put("/users/:id/follow", requireAuth, async (req: AuthRequest, res: Response, next) => {
   try {
     const followerId = req.user!.sub;
-    const followeeId = routeParam(req.params.id);
+    const rawParam = routeParam(req.params.id).replace(/^@/, "");
 
-    if (followerId === followeeId) {
-      throw AppError.badRequest("You cannot follow yourself", "CANNOT_FOLLOW_SELF");
-    }
-
-    const targetProfile = await prisma.profile.findUnique({
-      where: { userId: followeeId },
+    const targetProfile = await prisma.profile.findFirst({
+      where: {
+        OR: [
+          { userId: rawParam },
+          { username: { equals: rawParam, mode: "insensitive" } },
+        ],
+      },
     });
     if (!targetProfile) {
       throw AppError.notFound("User not found", "USER_NOT_FOUND");
+    }
+
+    const followeeId = targetProfile.userId;
+    if (followerId === followeeId) {
+      throw AppError.badRequest("You cannot follow yourself", "CANNOT_FOLLOW_SELF");
     }
 
     // Check block
@@ -114,7 +120,16 @@ router.put("/users/:id/follow", requireAuth, async (req: AuthRequest, res: Respo
 router.delete("/users/:id/follow", requireAuth, async (req: AuthRequest, res: Response, next) => {
   try {
     const followerId = req.user!.sub;
-    const followeeId = routeParam(req.params.id);
+    const rawParam = routeParam(req.params.id).replace(/^@/, "");
+    const targetLookup = await prisma.profile.findFirst({
+      where: {
+        OR: [
+          { userId: rawParam },
+          { username: { equals: rawParam, mode: "insensitive" } },
+        ],
+      },
+    });
+    const followeeId = targetLookup?.userId || rawParam;
 
     const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.follow.findUnique({
@@ -308,13 +323,19 @@ router.delete("/suggestions/users/:id", requireAuth, async (req: AuthRequest, re
 // GET /api/v1/profiles/:username/followers
 router.get("/profiles/:username/followers", optionalAuth, async (req: AuthRequest, res: Response, next) => {
   try {
-    const username = routeParam(req.params.username);
+    const rawUsername = routeParam(req.params.username);
+    const cleanParam = rawUsername.replace(/^@/, "");
     const limit = Math.min(Number(req.query.limit) || 20, 50);
     const cursor = decodeCursor(req.query.cursor as string);
     const viewerId = req.user?.sub;
 
     const profile = await prisma.profile.findFirst({
-      where: { username: { equals: username, mode: "insensitive" } },
+      where: {
+        OR: [
+          { userId: cleanParam },
+          { username: { equals: cleanParam, mode: "insensitive" } },
+        ],
+      },
     });
     if (!profile) throw AppError.notFound("Profile not found");
 
@@ -380,13 +401,19 @@ router.get("/profiles/:username/followers", optionalAuth, async (req: AuthReques
 // GET /api/v1/profiles/:username/following
 router.get("/profiles/:username/following", optionalAuth, async (req: AuthRequest, res: Response, next) => {
   try {
-    const username = routeParam(req.params.username);
+    const rawUsername = routeParam(req.params.username);
+    const cleanParam = rawUsername.replace(/^@/, "");
     const limit = Math.min(Number(req.query.limit) || 20, 50);
     const cursor = decodeCursor(req.query.cursor as string);
     const viewerId = req.user?.sub;
 
     const profile = await prisma.profile.findFirst({
-      where: { username: { equals: username, mode: "insensitive" } },
+      where: {
+        OR: [
+          { userId: cleanParam },
+          { username: { equals: cleanParam, mode: "insensitive" } },
+        ],
+      },
     });
     if (!profile) throw AppError.notFound("Profile not found");
 
@@ -453,10 +480,16 @@ router.get("/profiles/:username/following", optionalAuth, async (req: AuthReques
 router.get("/profiles/:username/mutuals", requireAuth, async (req: AuthRequest, res: Response, next) => {
   try {
     const viewerId = req.user!.sub;
-    const username = routeParam(req.params.username);
+    const rawUsername = routeParam(req.params.username);
+    const cleanParam = rawUsername.replace(/^@/, "");
 
     const profile = await prisma.profile.findFirst({
-      where: { username: { equals: username, mode: "insensitive" } },
+      where: {
+        OR: [
+          { userId: cleanParam },
+          { username: { equals: cleanParam, mode: "insensitive" } },
+        ],
+      },
     });
     if (!profile) throw AppError.notFound("Profile not found");
 

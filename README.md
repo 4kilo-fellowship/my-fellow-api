@@ -32,14 +32,14 @@ The application is built using the following technologies:
 - Prisma ORM (with PostgreSQL integration)
 - Mongoose (for specific components/services as configured)
 - Cloudinary (for media uploads)
-- Chapa (for payment integrations)
+- Jami (`jami-sdk` for payment integrations)
 - JSON Web Tokens (for authentication)
 - express-rate-limit and Helmet (for basic security)
 
 ## Project Setup
 
 1. Copy the environment template:
-   Create a `.env` file based on the default requirements (database URLs, JWT secrets, Chapa API keys, Cloudinary credentials).
+   Create a `.env` file based on the default requirements (database URLs, JWT secrets, Jami API token, Cloudinary credentials).
 
 2. Install dependencies:
    npm install
@@ -165,16 +165,16 @@ Base URL: `/api/marketplace`
 
 ### Payments
 
-Integration features specific endpoints structured to correspond with the Chapa API specifications.
+Integration features specific endpoints structured to correspond with the Jami API specifications.
 
 Base URL: `/api/payments`
 
-| Method | Endpoint                | Authorization | Description                                                               |
-| ------ | ----------------------- | ------------- | ------------------------------------------------------------------------- |
-| POST   | `/chapa/init`           | Token         | Configure an intent and generate checkout links for Chapa processing.     |
-| GET    | `/chapa/verify/:tx_ref` | Token         | Validate the final completion block of a processed transaction reference. |
-| POST   | `/chapa/webhook`        | None          | Webhook listener URL configuration for asynchronous confirmation.         |
-| GET    | `/my-givings`           | Token         | View all validated past donations and givings linked to the current user. |
+| Method | Endpoint                  | Authorization | Description                                                               |
+| ------ | ------------------------- | ------------- | ------------------------------------------------------------------------- |
+| POST   | `/jami/init`              | Token         | Configure an intent and generate checkout links for Jami processing.      |
+| GET    | `/jami/verify/:sessionId` | Token         | Validate the completion status of a Jami checkout session or reference.   |
+| POST   | `/jami/webhook`           | None          | Webhook listener URL configuration for asynchronous confirmation.         |
+| GET    | `/my-givings`             | Token         | View all validated past donations and givings linked to the current user. |
 
 ### Join Requests
 

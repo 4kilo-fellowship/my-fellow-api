@@ -240,6 +240,7 @@ export class AdminController {
               { "user.fullName": { $regex: search, $options: "i" } },
               { "user.phoneNumber": { $regex: search, $options: "i" } },
               { tx_ref: { $regex: search, $options: "i" } },
+              { sessionId: { $regex: search, $options: "i" } },
               { reason: { $regex: search, $options: "i" } },
             ],
           },
@@ -309,7 +310,7 @@ export class AdminController {
       ]);
 
       const [totalRevenueResult] = await TransactionModel.aggregate([
-        { $match: { status: "pending" } },
+        { $match: { status: { $in: ["success", "completed", "pending"] } } },
         { $group: { _id: null, total: { $sum: "$amount" } } },
       ]);
 

@@ -43,10 +43,16 @@ router.get("/ministries", async (req, res: Response, next) => {
 // GET /api/v1/profiles/:username/ministries
 router.get("/profiles/:username/ministries", async (req, res: Response, next) => {
   try {
-    const username = routeParam(req.params.username);
+    const rawUsername = routeParam(req.params.username);
+    const cleanParam = rawUsername.replace(/^@/, "");
 
     const profile = await prisma.profile.findFirst({
-      where: { username: { equals: username, mode: "insensitive" } },
+      where: {
+        OR: [
+          { userId: cleanParam },
+          { username: { equals: cleanParam, mode: "insensitive" } },
+        ],
+      },
     });
     if (!profile) throw AppError.notFound("Profile not found");
 

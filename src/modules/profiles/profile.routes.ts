@@ -12,21 +12,28 @@ import {
 import { ProfileDetail, UserSummary } from "../../platform/types.js";
 import { routeParam } from "../../utils/routeParam.js";
 import { getUserStreak } from "../streaks/streak.service.js";
+import { hydratePosts } from "../posts/post.service.js";
 
 const router = Router();
 
 // GET /api/v1/profiles/:username
 router.get("/profiles/:username", optionalAuth, async (req: AuthRequest, res: Response, next) => {
   try {
-    const username = routeParam(req.params.username);
+    const rawUsername = routeParam(req.params.username);
+    const cleanParam = rawUsername.replace(/^@/, "");
     const viewerId = req.user?.sub;
 
     const profile = await prisma.profile.findFirst({
       where: {
-        username: {
-          equals: username,
-          mode: "insensitive",
-        },
+        OR: [
+          { userId: cleanParam },
+          {
+            username: {
+              equals: cleanParam,
+              mode: "insensitive",
+            },
+          },
+        ],
       },
       include: {
         links: { orderBy: { position: "asc" } },
@@ -237,6 +244,95 @@ router.get("/profiles/:username", optionalAuth, async (req: AuthRequest, res: Re
     };
 
     return res.json(detail);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/v1/profiles/:username/posts
+router.get("/profiles/:username/posts", optionalAuth, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const rawUsername = routeParam(req.params.username);
+    const cleanParam = rawUsername.replace(/^@/, "");
+    const viewerId = req.user?.sub;
+    const filter = String(req.query.filter || "all");
+    const limit = Math.min(Number(req.query.limit) || 30, 50);
+
+    const profile = await prisma.profile.findFirst({
+      where: {
+        OR: [
+          { userId: cleanParam },
+          { username: { equals: cleanParam, mode: "insensitive" } },
+        ],
+      },
+    });
+    if (!profile) {
+      throw AppError.notFound("Profile not found", "PROFILE_NOT_FOUND");
+    }
+
+    const posts = await prisma.post.findMany({
+      where: {
+        authorId: profile.userId,
+        kind: { in: ["post", "quote"] },
+        deletedAt: null,
+        ...(filter === "media" ? { media: { some: {} } } : {}),
+      },
+      include: {
+        parent: { include: { author: true } },
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: limit,
+    });
+
+    const hydrated = await hydratePosts(posts, viewerId);
+    return res.json({ items: hydrated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/v1/profiles/:username/likes
+router.get("/profiles/:username/likes", optionalAuth, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const rawUsername = routeParam(req.params.username);
+    const cleanParam = rawUsername.replace(/^@/, "");
+    const viewerId = req.user?.sub;
+    const limit = Math.min(Number(req.query.limit) || 30, 50);
+
+    const profile = await prisma.profile.findFirst({
+      where: {
+        OR: [
+          { userId: cleanParam },
+          { username: { equals: cleanParam, mode: "insensitive" } },
+        ],
+      },
+    });
+    if (!profile) {
+      throw AppError.notFound("Profile not found", "PROFILE_NOT_FOUND");
+    }
+
+    const likes = await prisma.like.findMany({
+      where: {
+        userId: profile.userId,
+        post: {
+          deletedAt: null,
+          kind: { in: ["post", "quote"] },
+        },
+      },
+      include: {
+        post: {
+          include: {
+            parent: { include: { author: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+
+    const rawPosts = likes.map((l) => l.post).filter(Boolean);
+    const hydrated = await hydratePosts(rawPosts, viewerId);
+    return res.json({ items: hydrated });
   } catch (err) {
     next(err);
   }

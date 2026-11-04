@@ -47,10 +47,21 @@ router.get("/search", optionalAuth, async (req: AuthRequest, res: Response, next
     }
 
     // Search Posts
-    if (type === "all" || type === "posts") {
+    if (type === "all" || type === "posts" || type === "media") {
       const posts = await prisma.post.findMany({
         where: {
-          body: { contains: q, mode: "insensitive" },
+          ...(type === "media"
+            ? {
+                media: {
+                  some: {},
+                },
+              }
+            : {}),
+          ...(cleanQ
+            ? {
+                body: { contains: cleanQ, mode: "insensitive" },
+              }
+            : {}),
           deletedAt: null,
           visibility: "public",
         },
@@ -106,6 +117,8 @@ router.get("/trending/tags", async (req, res: Response, next) => {
       tag: `#${t.tag}`,
       rawTag: t.tag,
       postsCount: t._count.posts,
+      count: t._count.posts,
+      category: "Fellowship",
     }));
 
     return res.json({ items });
