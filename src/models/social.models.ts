@@ -216,6 +216,8 @@ export interface IPostMedia {
 
 export interface IPost {
   authorId: string;
+  authorActorId?: string | null;
+  createdByUserId?: string | null;
   kind: "post" | "reply" | "repost" | "quote";
   body?: string | null;
   parentId?: string | null;
@@ -252,6 +254,8 @@ const PostMediaSchema = new Schema<IPostMedia>(
 const PostSchema = new Schema<IPostDocument>(
   {
     authorId: { type: String, required: true, index: true },
+    authorActorId: { type: String, default: null, index: true },
+    createdByUserId: { type: String, default: null, index: true },
     kind: { type: String, enum: ["post", "reply", "repost", "quote"], default: "post", index: true },
     body: { type: String, default: null },
     parentId: { type: String, default: null, index: true },
@@ -284,6 +288,7 @@ const PostSchema = new Schema<IPostDocument>(
 
 PostSchema.index({ createdAt: -1 });
 PostSchema.index({ authorId: 1, createdAt: -1 });
+PostSchema.index({ authorActorId: 1, createdAt: -1 });
 PostSchema.index({ kind: 1, createdAt: -1 });
 PostSchema.index({ body: "text" });
 
@@ -628,3 +633,95 @@ const IdempotencyKeySchema = new Schema<IIdempotencyKey & Document>(
 );
 IdempotencyKeySchema.index({ userId: 1, key: 1 }, { unique: true });
 export const IdempotencyKeyModel = mongoose.models.IdempotencyKey || mongoose.model("IdempotencyKey", IdempotencyKeySchema);
+
+// -------------------------------------------------------------
+// Actor & TeamMember
+// -------------------------------------------------------------
+export type ActorType = "user" | "team" | "official";
+
+export interface IActor {
+  type: ActorType;
+  displayName: string;
+  handle: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  isVerified?: boolean;
+  userId?: string | null;
+  teamId?: string | null;
+  deletedAt?: Date | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface IActorDocument extends IActor, Document {
+  id: string;
+}
+
+const ActorSchema = new Schema<IActorDocument>(
+  {
+    type: { type: String, enum: ["user", "team", "official"], required: true, index: true },
+    displayName: { type: String, required: true },
+    handle: { type: String, required: true, unique: true, index: true },
+    avatarUrl: { type: String, default: null },
+    bio: { type: String, default: null },
+    isVerified: { type: Boolean, default: false },
+    userId: { type: String, default: null, index: true },
+    teamId: { type: String, default: null, index: true },
+    deletedAt: { type: Date, default: null },
+  },
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform: (_, ret: any) => {
+        ret.id = ret._id.toString();
+        delete ret.__v;
+        return ret;
+      },
+    },
+  }
+);
+
+export const ActorModel: Model<IActorDocument> =
+  mongoose.models.Actor || mongoose.model<IActorDocument>("Actor", ActorSchema);
+
+export type TeamMemberRole = "owner" | "editor" | "member";
+
+export interface ITeamMember {
+  actorId: string;
+  userId: string;
+  role: TeamMemberRole;
+  addedByUserId?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface ITeamMemberDocument extends ITeamMember, Document {
+  id: string;
+}
+
+const TeamMemberSchema = new Schema<ITeamMemberDocument>(
+  {
+    actorId: { type: String, required: true, index: true },
+    userId: { type: String, required: true, index: true },
+    role: { type: String, enum: ["owner", "editor", "member"], default: "editor" },
+    addedByUserId: { type: String, default: null },
+  },
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform: (_, ret: any) => {
+        ret.id = ret._id.toString();
+        delete ret.__v;
+        return ret;
+      },
+    },
+  }
+);
+
+TeamMemberSchema.index({ actorId: 1, userId: 1 }, { unique: true });
+
+export const TeamMemberModel: Model<ITeamMemberDocument> =
+  mongoose.models.TeamMember || mongoose.model<ITeamMemberDocument>("TeamMember", TeamMemberSchema);
+

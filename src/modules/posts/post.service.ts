@@ -6,6 +6,7 @@ import {
   BookmarkModel,
   ProfileModel,
   MediaAssetModel,
+  ActorModel,
 } from "../../models/social.models.js";
 
 export async function hydratePosts(posts: any[], viewerId?: string): Promise<PostResponse[]> {
@@ -51,6 +52,27 @@ export async function hydratePosts(posts: any[], viewerId?: string): Promise<Pos
       serializeUserSummary(a, a.avatarAssetId ? avatarMap.get(a.avatarAssetId) : null),
     ])
   );
+
+  // 2b. Fetch actors for posts created on behalf of teams/official identities
+  const actorIds = posts
+    .map((p) => p.authorActorId)
+    .filter((id): id is string => Boolean(id));
+
+  const actorMap = new Map<string, any>();
+  if (actorIds.length > 0) {
+    const validObjectIds = actorIds.filter((id) => /^[0-9a-fA-F]{24}$/.test(id));
+    const actors = await ActorModel.find({
+      $or: [
+        { _id: { $in: validObjectIds } },
+        { handle: { $in: actorIds } },
+      ],
+      deletedAt: null,
+    }).lean();
+    for (const a of actors) {
+      actorMap.set((a as any)._id.toString(), a);
+      if ((a as any).handle) actorMap.set((a as any).handle, a);
+    }
+  }
 
   // 3. Media map for these posts
   const mediaMap = new Map<string, any[]>();
@@ -147,7 +169,8 @@ export async function hydratePosts(posts: any[], viewerId?: string): Promise<Pos
 
   return posts.map((p) => {
     const pId = p.id || p._id?.toString();
-    const author = authorMap.get(p.authorId) || {
+    const actor = p.authorActorId ? actorMap.get(p.authorActorId) : null;
+    let author = authorMap.get(p.authorId) || {
       id: p.authorId,
       username: "unknown",
       displayName: "Unknown Member",
@@ -155,10 +178,47 @@ export async function hydratePosts(posts: any[], viewerId?: string): Promise<Pos
       isVerified: false,
     };
 
+    if (actor) {
+      author = {
+        id: actor._id ? actor._id.toString() : actor.id,
+        username: actor.handle,
+        displayName: actor.displayName,
+        avatar: actor.avatarUrl
+          ? {
+              id: actor.handle,
+              kind: "image",
+              width: 400,
+              height: 400,
+              urls: {
+                sm: actor.avatarUrl,
+                md: actor.avatarUrl,
+                lg: actor.avatarUrl,
+                original: actor.avatarUrl,
+              },
+            }
+          : null,
+        isVerified: Boolean(actor.isVerified),
+        fellowshipRole: actor.type === "official" ? "Official Fellowship" : "Fellowship Team",
+        ministryBadge: actor.displayName,
+      };
+    }
+
     return {
       id: pId,
       kind: p.kind as any,
       author,
+      authorActor: actor
+        ? {
+            id: actor._id ? actor._id.toString() : actor.id,
+            type: actor.type,
+            displayName: actor.displayName,
+            handle: actor.handle,
+            avatarUrl: actor.avatarUrl,
+            bio: actor.bio,
+            isVerified: Boolean(actor.isVerified),
+          }
+        : null,
+      createdByUserId: p.createdByUserId || null,
       body: p.body,
       createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
       editedAt: p.editedAt ? new Date(p.editedAt).toISOString() : null,

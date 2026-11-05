@@ -13,6 +13,7 @@ import {
   PostHashtagModel,
   OutboxEventModel,
 } from "../../models/social.models.js";
+import { canPostAs } from "../actors/actor.service.js";
 
 const router = Router();
 
@@ -20,7 +21,7 @@ const router = Router();
 router.post("/posts", requireAuth, async (req: AuthRequest, res: Response, next) => {
   try {
     const authorId = req.user!.sub;
-    const { body, mediaAssetIds, parentId, quotedId, visibility = "public" } = req.body;
+    const { body, mediaAssetIds, parentId, quotedId, visibility = "public", authorActorId } = req.body;
 
     const trimmedBody = body ? String(body).trim() : null;
     const mediaIds = Array.isArray(mediaAssetIds) ? mediaAssetIds : [];
@@ -31,6 +32,22 @@ router.post("/posts", requireAuth, async (req: AuthRequest, res: Response, next)
 
     if (trimmedBody && trimmedBody.length > 500) {
       throw AppError.badRequest("Post body cannot exceed 500 characters", "POST_TOO_LONG");
+    }
+
+    // Verify actor permission if posting on behalf of an actor
+    let finalAuthorActorId: string | null = null;
+    let effectiveAuthorId = authorId;
+
+    if (authorActorId && authorActorId !== "me") {
+      const { allowed, actor } = await canPostAs(
+        { sub: authorId, role: req.user!.role },
+        authorActorId
+      );
+      if (!allowed || !actor) {
+        throw AppError.forbidden("You are not authorized to post on behalf of this actor", "FORBIDDEN_ACTOR");
+      }
+      finalAuthorActorId = actor._id.toString();
+      effectiveAuthorId = actor.userId || authorId;
     }
 
     // Determine kind
@@ -56,7 +73,9 @@ router.post("/posts", requireAuth, async (req: AuthRequest, res: Response, next)
     }));
 
     const postDoc = await PostModel.create({
-      authorId,
+      authorId: effectiveAuthorId,
+      authorActorId: finalAuthorActorId,
+      createdByUserId: authorId,
       kind,
       body: trimmedBody,
       parentId: parentId || null,
@@ -216,8 +235,11 @@ router.delete("/posts/:id", requireAuth, async (req: AuthRequest, res: Response,
     const post = await PostModel.findOne({ _id: id, deletedAt: null });
     if (!post) throw AppError.notFound("Post not found", "POST_NOT_FOUND");
 
-    if (post.authorId !== userId) {
-      throw AppError.forbidden("You cannot delete another member's post", "FORBIDDEN");
+    const isOwner = post.authorId === userId || post.createdByUserId === userId;
+    const isSuperOrLeader = req.user!.role === "super_admin" || req.user!.role === "leader";
+
+    if (!isOwner && !isSuperOrLeader) {
+      throw AppError.forbidden("You cannot delete this post", "FORBIDDEN");
     }
 
     post.deletedAt = new Date();

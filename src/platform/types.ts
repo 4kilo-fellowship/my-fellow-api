@@ -24,10 +24,22 @@ export type UserSummary = {
   ministryBadge?: string | null;
 };
 
+export type ActorSummary = {
+  id: string;
+  type: "user" | "team" | "official";
+  displayName: string;
+  handle: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  isVerified: boolean;
+};
+
 export type PostResponse = {
   id: string;
   kind: "post" | "reply" | "repost" | "quote";
   author: UserSummary;
+  authorActor?: ActorSummary | null;
+  createdByUserId?: string | null;
   body: string | null;
   createdAt: string;
   editedAt?: string | null;

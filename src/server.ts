@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 
 import { mongoClient } from "./utils/mongodb.js";
 import { sweepExpiredEvents } from "./utils/cron.js";
+import { ensureDefaultActors } from "./modules/actors/actor.service.js";
 
 const PORT: number = Number(process.env.PORT) || 4000;
 const MONGO_URI = process.env.MONGO_URI;
@@ -22,6 +23,11 @@ Promise.all([
     // Perform initial sweep of expired events immediately on server start
     await sweepExpiredEvents().catch((e) =>
       console.error("Initial sweep failed:", e),
+    );
+
+    // Ensure canonical actors (8 teams + official fellowship identity)
+    await ensureDefaultActors().catch((e) =>
+      console.error("Actor initialization failed:", e),
     );
 
     app.listen(PORT, "0.0.0.0", () => {

@@ -12,6 +12,7 @@ import ministryRoutes from "../modules/ministries/ministry.routes.js";
 import notificationRoutes from "../modules/notifications/notification.routes.js";
 import searchRoutes from "../modules/search/search.routes.js";
 import mediaRoutes from "../modules/media/media.routes.js";
+import actorRoutes from "../modules/actors/actor.routes.js";
 import { idempotencyMiddleware } from "../platform/idempotency.js";
 
 const v1Router = Router();
@@ -19,6 +20,7 @@ const v1Router = Router();
 v1Router.use(idempotencyMiddleware());
 
 v1Router.use(metaRoutes);
+v1Router.use(actorRoutes);
 v1Router.use(profileRoutes);
 v1Router.use(followRoutes);
 v1Router.use(postRoutes);
