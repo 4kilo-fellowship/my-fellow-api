@@ -1,6 +1,7 @@
 import { Router, Response } from "express";
 import { requireAuth, AuthRequest } from "../../middleware/auth.middleware.js";
 import { prisma } from "../../utils/prisma.js";
+import { resolveUniqueUsername } from "../../utils/username.js";
 import { serializeUserSummary, serializeMediaAsset } from "../../platform/serializer.js";
 import { UserModel } from "../../models/user.model.js";
 import { getUserStreak } from "../streaks/streak.service.js";
@@ -42,9 +43,11 @@ router.get("/me", requireAuth, async (req: AuthRequest, res: Response) => {
     // Auto-upsert profile from Mongo User record if missing
     if (!profile) {
       const mongoUser = await UserModel.findById(userId);
-      const username = mongoUser?.phoneNumber
-        ? `user_${mongoUser.phoneNumber.replace(/[^0-9]/g, "").slice(-6)}`
-        : `user_${userId.slice(-6)}`;
+      const username = await resolveUniqueUsername(
+        mongoUser?.telegramUserName,
+        userId,
+        mongoUser?.fullName || mongoUser?.phoneNumber
+      );
       const displayName = mongoUser?.fullName || "Fellowship Member";
 
       profile = await prisma.profile.create({
@@ -52,8 +55,8 @@ router.get("/me", requireAuth, async (req: AuthRequest, res: Response) => {
           userId,
           username,
           displayName,
-          department: mongoUser?.department || "Engineering",
-          studyYear: mongoUser?.yearOfStudy ? parseInt(mongoUser.yearOfStudy, 10) || 3 : 3,
+          department: mongoUser?.department || null,
+          studyYear: mongoUser?.yearOfStudy ? parseInt(mongoUser.yearOfStudy, 10) || null : null,
           fellowshipRole: ["admin", "super_admin", "leader"].includes(
             String(mongoUser?.role),
           )
