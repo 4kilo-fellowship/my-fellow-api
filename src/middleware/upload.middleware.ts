@@ -21,10 +21,6 @@ const devotionMediaFilter = (
   cb: FileFilterCallback,
 ) => {
   const allowedMimeTypes = [
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "image/gif",
     "audio/mpeg",
     "audio/mp3",
     "audio/wav",
@@ -32,11 +28,6 @@ const devotionMediaFilter = (
     "audio/aac",
     "audio/m4a",
     "audio/x-m4a",
-    "application/pdf",
-    "application/epub+zip",
-    "application/x-mobipocket-ebook",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/msword",
   ];
 
   if (allowedMimeTypes.includes(file.mimetype)) {
@@ -44,7 +35,7 @@ const devotionMediaFilter = (
   } else {
     cb(
       new Error(
-        `File type "${file.mimetype}" is not allowed. Accepted: images, audio (mp3/wav/ogg/aac/m4a), PDF, EPUB, MOBI, DOC/DOCX`,
+        `File type "${file.mimetype}" is not allowed. Devotion audio uploads accept: audio (mp3, wav, ogg, aac, m4a)`,
       ),
     );
   }
