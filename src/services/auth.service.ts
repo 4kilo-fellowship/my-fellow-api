@@ -5,6 +5,8 @@ import TeamModel from "../models/team.model.js";
 import { IUserDocument, UserModel } from "../models/user.model.js";
 import { SignInDTO, SignUpDTO } from "../types/types.js";
 import { signJwt } from "../utils/jwt.js";
+import { prisma } from "../utils/prisma.js";
+import { resolveUniqueUsername } from "../utils/username.js";
 import { uploadImageToCloudinary } from "./cloudinary.service.js";
 import { OtpService, toLocalPhone } from "./otp.service.js";
 
@@ -130,6 +132,52 @@ export class AuthService {
     await user.populate("team", "name");
     const token = await AuthService.createAuthToken(user);
 
+    let resolvedUsername: string | undefined = undefined;
+    try {
+      resolvedUsername = await resolveUniqueUsername(
+        dto.telegramUserName,
+        String(user._id),
+        dto.fullName || normalizedPhone
+      );
+
+      const studyYearNum = dto.yearOfStudy ? parseInt(String(dto.yearOfStudy), 10) || null : null;
+      await prisma.profile.upsert({
+        where: { userId: String(user._id) },
+        update: {
+          username: resolvedUsername,
+          displayName: dto.fullName || "Fellowship Member",
+          department: dto.department || undefined,
+          studyYear: studyYearNum ?? undefined,
+        },
+        create: {
+          userId: String(user._id),
+          username: resolvedUsername,
+          displayName: dto.fullName || "Fellowship Member",
+          department: dto.department || null,
+          studyYear: studyYearNum ?? null,
+          fellowshipRole: "Fellowship Member",
+        },
+      });
+
+      if (dto.telegramUserName) {
+        const cleanTelegram = dto.telegramUserName.replace(/^@/, "").trim();
+        await prisma.profileLink.deleteMany({
+          where: { userId: String(user._id), kind: "telegram" },
+        });
+        await prisma.profileLink.create({
+          data: {
+            userId: String(user._id),
+            kind: "telegram",
+            handle: cleanTelegram,
+            url: `https://t.me/${cleanTelegram}`,
+            position: 0,
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Failed to auto-create profile during register:", err);
+    }
+
     const safeUser = {
       id: user._id,
       fullName: user.fullName,
@@ -139,6 +187,7 @@ export class AuthService {
       department: user.department,
       yearOfStudy: user.yearOfStudy,
       telegramUserName: user.telegramUserName,
+      username: resolvedUsername,
       profileImage: user.profileImage,
       createdAt: user.createdAt,
     };
@@ -267,6 +316,63 @@ export class AuthService {
     await user.save();
     await user.populate("team", "name");
 
+    let resolvedUsername: string | undefined = undefined;
+    try {
+      const rawTelegram =
+        updates.telegramUserName !== undefined
+          ? updates.telegramUserName
+          : user.telegramUserName;
+
+      resolvedUsername = await resolveUniqueUsername(
+        rawTelegram,
+        String(user._id),
+        user.fullName || user.phoneNumber
+      );
+
+      const studyYearNum = user.yearOfStudy
+        ? parseInt(String(user.yearOfStudy), 10) || null
+        : null;
+
+      await prisma.profile.upsert({
+        where: { userId: String(user._id) },
+        update: {
+          username: resolvedUsername,
+          displayName: user.fullName || "Fellowship Member",
+          department: user.department || undefined,
+          studyYear: studyYearNum ?? undefined,
+        },
+        create: {
+          userId: String(user._id),
+          username: resolvedUsername,
+          displayName: user.fullName || "Fellowship Member",
+          department: user.department || null,
+          studyYear: studyYearNum ?? null,
+          fellowshipRole: "Fellowship Member",
+        },
+      });
+
+      // Update telegram link if handle present
+      const cleanTelegram = rawTelegram
+        ? rawTelegram.replace(/^@/, "").trim()
+        : null;
+      if (cleanTelegram) {
+        await prisma.profileLink.deleteMany({
+          where: { userId: String(user._id), kind: "telegram" },
+        });
+        await prisma.profileLink.create({
+          data: {
+            userId: String(user._id),
+            kind: "telegram",
+            handle: cleanTelegram,
+            url: `https://t.me/${cleanTelegram}`,
+            position: 0,
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Failed to sync profile username in updateProfile:", err);
+    }
+
     const safeUser = {
       id: user._id,
       fullName: user.fullName,
@@ -276,6 +382,7 @@ export class AuthService {
       department: user.department,
       yearOfStudy: user.yearOfStudy,
       telegramUserName: user.telegramUserName,
+      username: resolvedUsername,
       profileImage: user.profileImage,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,

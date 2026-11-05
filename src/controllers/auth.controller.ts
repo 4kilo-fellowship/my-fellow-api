@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware.js";
 import { AuthService } from "../services/auth.service.js";
+import { prisma } from "../utils/prisma.js";
 import {
   changePasswordSchema,
   requestOtpSchema,
@@ -132,6 +133,16 @@ export class AuthController {
           .status(404)
           .json({ success: false, message: "User not found" });
       }
+
+      let profileUsername: string | undefined = undefined;
+      try {
+        const profile = await prisma.profile.findUnique({
+          where: { userId: String(user._id) },
+          select: { username: true },
+        });
+        profileUsername = profile?.username;
+      } catch {}
+
       const safeUser = {
         id: user._id,
         fullName: user.fullName,
@@ -141,6 +152,7 @@ export class AuthController {
         department: user.department,
         yearOfStudy: user.yearOfStudy,
         telegramUserName: user.telegramUserName,
+        username: profileUsername,
         profileImage: user.profileImage,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
