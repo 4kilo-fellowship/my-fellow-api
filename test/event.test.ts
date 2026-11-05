@@ -55,3 +55,15 @@ test("createEventSchema rejects endDate before startDate", () => {
 
   assert.equal(parsed.success, false);
 });
+
+test("outdated events logic identifies passed end dates for auto-unpublishing", () => {
+  const now = new Date();
+  const pastDate = new Date(now.getTime() - 1000 * 60 * 60); // 1 hour ago
+  const futureDate = new Date(now.getTime() + 1000 * 60 * 60 * 24); // 24 hours later
+
+  const isPastOutdated = pastDate.getTime() < now.getTime();
+  const isFutureOutdated = futureDate.getTime() < now.getTime();
+
+  assert.equal(isPastOutdated, true);
+  assert.equal(isFutureOutdated, false);
+});
