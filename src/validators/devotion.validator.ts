@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 // ─── Shared enum ────────────────────────────────────────────────────
-const DEVOTION_TYPES = ["text", "voice", "pdf", "book"] as const;
+const DEVOTION_TYPES = ["text", "voice"] as const;
 const devotionTypeEnum = z.enum(DEVOTION_TYPES, {
-  message: "Type must be one of: text, voice, pdf, book",
+  message: "Type must be one of: text, voice",
 });
 
 // ─── Create ─────────────────────────────────────────────────────────
@@ -23,15 +23,7 @@ export const createDevotionSchema = z
     // Voice type
     audioUrl: z.string().url().optional(),
     duration: z.string().optional(),
-    caption: z.string().optional(), // Text description for voice devotions
-
-    // PDF type
-    pdfUrl: z.string().url().optional(),
-    pageCount: z.coerce.number().int().min(1).optional(),
-
-    // Book type
-    bookUrl: z.string().url().optional(),
-    bookFormat: z.string().optional(),
+    caption: z.string().optional(), // Mandatory caption/transcript for voice devotions
 
     // Shared metadata
     tags: z
@@ -65,12 +57,21 @@ export const createDevotionSchema = z
       });
     }
 
-    if (data.type === "voice" && !data.duration) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Voice devotions require a 'duration' field (e.g. '5:20')",
-        path: ["duration"],
-      });
+    if (data.type === "voice") {
+      if (!data.duration) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Voice devotions require a 'duration' field (e.g. '5:20')",
+          path: ["duration"],
+        });
+      }
+      if (!data.caption && !data.content) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Voice devotions always require a caption or transcript text",
+          path: ["caption"],
+        });
+      }
     }
   });
 
@@ -89,12 +90,6 @@ export const updateDevotionSchema = z.object({
   audioUrl: z.string().url().optional(),
   duration: z.string().optional(),
   caption: z.string().optional(),
-
-  pdfUrl: z.string().url().optional(),
-  pageCount: z.coerce.number().int().min(1).optional(),
-
-  bookUrl: z.string().url().optional(),
-  bookFormat: z.string().optional(),
 
   tags: z
     .union([z.string(), z.array(z.string())])

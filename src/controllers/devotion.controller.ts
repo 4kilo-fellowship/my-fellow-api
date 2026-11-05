@@ -65,31 +65,14 @@ export class DevotionController {
       // ── Handle type-specific media ──────────────────────────────────
       let audioUrl: string | undefined = data.audioUrl;
       let audioPublicId: string | undefined;
-      let pdfUrl: string | undefined = data.pdfUrl;
-      let pdfPublicId: string | undefined;
-      let bookUrl: string | undefined = data.bookUrl;
-      let bookPublicId: string | undefined;
 
-      if (mediaFile) {
-        const result = await uploadDevotionMedia(mediaFile.buffer, data.type);
-
-        switch (data.type) {
-          case "voice":
-            audioUrl = result.secure_url;
-            audioPublicId = result.public_id;
-            break;
-          case "pdf":
-            pdfUrl = result.secure_url;
-            pdfPublicId = result.public_id;
-            break;
-          case "book":
-            bookUrl = result.secure_url;
-            bookPublicId = result.public_id;
-            break;
-        }
+      if (mediaFile && data.type === "voice") {
+        const result = await uploadDevotionMedia(mediaFile.buffer, "voice");
+        audioUrl = result.secure_url;
+        audioPublicId = result.public_id;
       }
 
-      // Validate that media-dependent types have their media
+      // Validate that voice devotions have their audio
       if (data.type === "voice" && !audioUrl) {
         return res.status(400).json({
           success: false,
@@ -98,19 +81,13 @@ export class DevotionController {
         });
       }
 
-      if (data.type === "pdf" && !pdfUrl) {
+      // Voice devotions always have a caption or transcript text
+      const voiceCaption = data.caption || data.content;
+      if (data.type === "voice" && !voiceCaption) {
         return res.status(400).json({
           success: false,
           message:
-            "PDF devotions require a PDF file (upload via 'media' field) or a 'pdfUrl'",
-        });
-      }
-
-      if (data.type === "book" && !bookUrl) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Book devotions require a book file (upload via 'media' field) or a 'bookUrl'",
+            "Voice devotions always require a caption or transcript text",
         });
       }
 
@@ -123,17 +100,11 @@ export class DevotionController {
         likes: data.likes ?? 0,
         image: imageUrl,
         imagePublicId,
-        content: data.content,
+        content: data.type === "text" ? data.content : voiceCaption,
         audioUrl,
         audioPublicId,
         duration: data.duration,
-        caption: data.caption,
-        pdfUrl,
-        pdfPublicId,
-        pageCount: data.pageCount,
-        bookUrl,
-        bookPublicId,
-        bookFormat: data.bookFormat,
+        caption: voiceCaption,
         tags: data.tags,
         featured: data.featured ?? false,
       });
@@ -238,21 +209,10 @@ export class DevotionController {
       // ── Replace media file if new one uploaded ──────────────────────
       if (mediaFile) {
         const type = data.type || existing.type;
-        const result = await uploadDevotionMedia(mediaFile.buffer, type);
-
-        switch (type) {
-          case "voice":
-            data.audioUrl = result.secure_url;
-            data.audioPublicId = result.public_id;
-            break;
-          case "pdf":
-            data.pdfUrl = result.secure_url;
-            data.pdfPublicId = result.public_id;
-            break;
-          case "book":
-            data.bookUrl = result.secure_url;
-            data.bookPublicId = result.public_id;
-            break;
+        if (type === "voice") {
+          const result = await uploadDevotionMedia(mediaFile.buffer, "voice");
+          data.audioUrl = result.secure_url;
+          data.audioPublicId = result.public_id;
         }
       }
 

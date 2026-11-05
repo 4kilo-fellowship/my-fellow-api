@@ -14,17 +14,12 @@ import {
 /**
  * Determine the Cloudinary resource_type for a given devotion type.
  *  - voice  → "video" (Cloudinary treats audio as video resource)
- *  - pdf    → "raw"
- *  - book   → "raw"
  *  - text   → not applicable (no media file)
  */
 function getResourceType(type: DevotionType): "image" | "video" | "raw" {
   switch (type) {
     case "voice":
       return "video"; // Cloudinary uses "video" for audio files
-    case "pdf":
-    case "book":
-      return "raw";
     default:
       return "image";
   }
@@ -46,12 +41,7 @@ export async function uploadDevotionMedia(
   type: DevotionType,
 ): Promise<{ secure_url: string; public_id: string }> {
   const resourceType = getResourceType(type);
-  const folderMap: Record<string, string> = {
-    voice: "devotions/audio",
-    pdf: "devotions/pdfs",
-    book: "devotions/books",
-  };
-  const folder = folderMap[type] || "devotions/media";
+  const folder = type === "voice" ? "devotions/audio" : "devotions/media";
 
   const result = await uploadFileToCloudinary(fileBuffer, {
     folder,
@@ -71,11 +61,12 @@ export async function deleteDevotionAssets(devotion: IDevotion): Promise<void> {
   if (devotion.audioPublicId) {
     deletions.push(deleteImageFromCloudinary(devotion.audioPublicId, "video"));
   }
-  if (devotion.pdfPublicId) {
-    deletions.push(deleteImageFromCloudinary(devotion.pdfPublicId, "raw"));
+  const legacyDoc = devotion as any;
+  if (legacyDoc.pdfPublicId) {
+    deletions.push(deleteImageFromCloudinary(legacyDoc.pdfPublicId, "raw"));
   }
-  if (devotion.bookPublicId) {
-    deletions.push(deleteImageFromCloudinary(devotion.bookPublicId, "raw"));
+  if (legacyDoc.bookPublicId) {
+    deletions.push(deleteImageFromCloudinary(legacyDoc.bookPublicId, "raw"));
   }
 
   await Promise.allSettled(deletions); // Don't fail if one cleanup fails

@@ -1,6 +1,6 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
 
-export type DevotionType = "text" | "voice" | "pdf" | "book";
+export type DevotionType = "text" | "voice";
 
 export interface IDevotion extends Document {
   title: string;
@@ -14,20 +14,10 @@ export interface IDevotion extends Document {
   duration?: string;
   content?: string;
 
-  // Voice devotion fields
+  // Voice devotion fields (voice audio + mandatory caption/transcript)
   audioUrl?: string;
   audioPublicId?: string;
-  caption?: string; // Text description
-
-  // PDF devotion fields
-  pdfUrl?: string;
-  pdfPublicId?: string;
-  pageCount?: number;
-
-  // Book devotion fields
-  bookUrl?: string;
-  bookPublicId?: string;
-  bookFormat?: string;
+  caption?: string;
 
   // Shared metadata
   tags?: string[];
@@ -48,28 +38,18 @@ const DevotionSchema = new Schema<IDevotion>(
     imagePublicId: { type: String },
     type: {
       type: String,
-      enum: ["text", "voice", "pdf", "book"],
+      enum: ["text", "voice"],
       required: true,
     },
     duration: { type: String },
 
-    // Text
+    // Text & Voice devotion content / caption
     content: { type: String },
 
-    // Voice
+    // Voice & Audio
     audioUrl: { type: String },
     audioPublicId: { type: String },
     caption: { type: String },
-
-    // PDF
-    pdfUrl: { type: String },
-    pdfPublicId: { type: String },
-    pageCount: { type: Number },
-
-    // Book
-    bookUrl: { type: String },
-    bookPublicId: { type: String },
-    bookFormat: { type: String },
 
     // Shared
     tags: [{ type: String, trim: true }],
