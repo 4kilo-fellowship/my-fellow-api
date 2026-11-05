@@ -5,7 +5,7 @@ import TeamModel from "../models/team.model.js";
 import { IUserDocument, UserModel } from "../models/user.model.js";
 import { SignInDTO, SignUpDTO } from "../types/types.js";
 import { signJwt } from "../utils/jwt.js";
-import { prisma } from "../utils/prisma.js";
+import { ProfileModel } from "../models/social.models.js";
 import { resolveUniqueUsername } from "../utils/username.js";
 import { uploadImageToCloudinary } from "./cloudinary.service.js";
 import { OtpService, toLocalPhone } from "./otp.service.js";
@@ -141,39 +141,27 @@ export class AuthService {
       );
 
       const studyYearNum = dto.yearOfStudy ? parseInt(String(dto.yearOfStudy), 10) || null : null;
-      await prisma.profile.upsert({
-        where: { userId: String(user._id) },
-        update: {
-          username: resolvedUsername,
-          displayName: dto.fullName || "Fellowship Member",
-          department: dto.department || undefined,
-          studyYear: studyYearNum ?? undefined,
-        },
-        create: {
-          userId: String(user._id),
-          username: resolvedUsername,
-          displayName: dto.fullName || "Fellowship Member",
-          department: dto.department || null,
-          studyYear: studyYearNum ?? null,
-          fellowshipRole: "Fellowship Member",
-        },
-      });
+      const cleanTelegram = dto.telegramUserName ? dto.telegramUserName.replace(/^@/, "").trim() : null;
+      const links = cleanTelegram
+        ? [{ kind: "telegram", handle: cleanTelegram, url: `https://t.me/${cleanTelegram}`, position: 0 }]
+        : [];
 
-      if (dto.telegramUserName) {
-        const cleanTelegram = dto.telegramUserName.replace(/^@/, "").trim();
-        await prisma.profileLink.deleteMany({
-          where: { userId: String(user._id), kind: "telegram" },
-        });
-        await prisma.profileLink.create({
-          data: {
-            userId: String(user._id),
-            kind: "telegram",
-            handle: cleanTelegram,
-            url: `https://t.me/${cleanTelegram}`,
-            position: 0,
+      await ProfileModel.findOneAndUpdate(
+        { userId: String(user._id) },
+        {
+          $set: {
+            username: resolvedUsername,
+            displayName: dto.fullName || "Fellowship Member",
+            department: dto.department || null,
+            studyYear: studyYearNum,
+            links,
           },
-        });
-      }
+          $setOnInsert: {
+            fellowshipRole: "Fellowship Member",
+          },
+        },
+        { upsert: true, new: true }
+      );
     } catch (err) {
       console.error("Failed to auto-create profile during register:", err);
     }
@@ -332,43 +320,29 @@ export class AuthService {
       const studyYearNum = user.yearOfStudy
         ? parseInt(String(user.yearOfStudy), 10) || null
         : null;
-
-      await prisma.profile.upsert({
-        where: { userId: String(user._id) },
-        update: {
-          username: resolvedUsername,
-          displayName: user.fullName || "Fellowship Member",
-          department: user.department || undefined,
-          studyYear: studyYearNum ?? undefined,
-        },
-        create: {
-          userId: String(user._id),
-          username: resolvedUsername,
-          displayName: user.fullName || "Fellowship Member",
-          department: user.department || null,
-          studyYear: studyYearNum ?? null,
-          fellowshipRole: "Fellowship Member",
-        },
-      });
-
-      // Update telegram link if handle present
       const cleanTelegram = rawTelegram
         ? rawTelegram.replace(/^@/, "").trim()
         : null;
-      if (cleanTelegram) {
-        await prisma.profileLink.deleteMany({
-          where: { userId: String(user._id), kind: "telegram" },
-        });
-        await prisma.profileLink.create({
-          data: {
-            userId: String(user._id),
-            kind: "telegram",
-            handle: cleanTelegram,
-            url: `https://t.me/${cleanTelegram}`,
-            position: 0,
+      const links = cleanTelegram
+        ? [{ kind: "telegram", handle: cleanTelegram, url: `https://t.me/${cleanTelegram}`, position: 0 }]
+        : [];
+
+      await ProfileModel.findOneAndUpdate(
+        { userId: String(user._id) },
+        {
+          $set: {
+            username: resolvedUsername,
+            displayName: user.fullName || "Fellowship Member",
+            department: user.department || null,
+            studyYear: studyYearNum,
+            links,
           },
-        });
-      }
+          $setOnInsert: {
+            fellowshipRole: "Fellowship Member",
+          },
+        },
+        { upsert: true, new: true }
+      );
     } catch (err) {
       console.error("Failed to sync profile username in updateProfile:", err);
     }

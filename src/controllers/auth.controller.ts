@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware.js";
 import { AuthService } from "../services/auth.service.js";
-import { prisma } from "../utils/prisma.js";
+import { ProfileModel } from "../models/social.models.js";
 import {
   changePasswordSchema,
   requestOtpSchema,
@@ -136,11 +136,8 @@ export class AuthController {
 
       let profileUsername: string | undefined = undefined;
       try {
-        const profile = await prisma.profile.findUnique({
-          where: { userId: String(user._id) },
-          select: { username: true },
-        });
-        profileUsername = profile?.username;
+        const profile = await ProfileModel.findOne({ userId: String(user._id) }).select("username").lean();
+        profileUsername = (profile as any)?.username;
       } catch {}
 
       const safeUser = {

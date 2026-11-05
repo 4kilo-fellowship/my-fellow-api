@@ -1,130 +1,85 @@
 import { Router, Response } from "express";
-import { requireAuth, AuthRequest } from "../../middleware/auth.middleware.js";
-import { prisma } from "../../utils/prisma.js";
-import { resolveUniqueUsername } from "../../utils/username.js";
-import { serializeUserSummary, serializeMediaAsset } from "../../platform/serializer.js";
+import { optionalAuth } from "../../platform/auth.js";
+import { AuthRequest } from "../../middleware/auth.middleware.js";
+import { serializeMediaAsset, serializeUserSummary } from "../../platform/serializer.js";
+import {
+  ProfileModel,
+  MediaAssetModel,
+  NotificationModel,
+} from "../../models/social.models.js";
 import { UserModel } from "../../models/user.model.js";
-import { getUserStreak } from "../streaks/streak.service.js";
 
 const router = Router();
 
-// GET /api/v1/meta (public)
-router.get("/meta", (req, res) => {
-  return res.json({
-    minAppVersion: "1.0.0",
-    currentVersion: "1.0.0",
-    serverTime: new Date().toISOString(),
-    features: {
-      streaks: true,
-      mediaUploads: true,
-      pushNotifications: true,
-      videoLibrary: true,
-      storyHighlights: true,
-    },
-  });
-});
-
-// GET /api/v1/me (auth required)
-router.get("/me", requireAuth, async (req: AuthRequest, res: Response) => {
+// GET /api/v1/meta/me
+router.get("/meta/me", optionalAuth, async (req: AuthRequest, res: Response, next) => {
   try {
-    const userId = req.user!.sub;
+    const viewerId = req.user?.sub;
 
-    let profile = await prisma.profile.findUnique({
-      where: { userId },
-      include: {
-        links: { orderBy: { position: "asc" } },
-        streak: true,
-        ministryMemberships: {
-          include: { ministry: true },
-        },
-      },
-    });
+    if (!viewerId) {
+      return res.json({
+        user: null,
+        unreadNotificationsCount: 0,
+        unreadMessagesCount: 0,
+        serverTime: new Date().toISOString(),
+      });
+    }
 
-    // Auto-upsert profile from Mongo User record if missing
+    let profile = await ProfileModel.findOne({ userId: viewerId }).lean();
+
     if (!profile) {
-      const mongoUser = await UserModel.findById(userId);
-      const username = await resolveUniqueUsername(
-        mongoUser?.telegramUserName,
-        userId,
-        mongoUser?.fullName || mongoUser?.phoneNumber
-      );
-      const displayName = mongoUser?.fullName || "Fellowship Member";
+      const user = await UserModel.findById(viewerId).lean();
+      const displayName = (user as any)?.fullName || "Fellowship Member";
+      const baseUsername = ((user as any)?.telegramUserName || (user as any)?.fullName || "fellow")
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "");
 
-      profile = await prisma.profile.create({
-        data: {
-          userId,
-          username,
-          displayName,
-          department: mongoUser?.department || null,
-          studyYear: mongoUser?.yearOfStudy ? parseInt(mongoUser.yearOfStudy, 10) || null : null,
-          fellowshipRole: ["admin", "super_admin", "leader"].includes(
-            String(mongoUser?.role),
-          )
-            ? "Fellowship Leader"
-            : "Fellowship Member",
-        },
-        include: {
-          links: true,
-          streak: true,
-          ministryMemberships: {
-            include: { ministry: true },
-          },
-        },
+      const created = await ProfileModel.create({
+        userId: viewerId,
+        username: `${baseUsername}_${viewerId.slice(-4)}`,
+        displayName,
+        fellowshipRole: (user as any)?.role || "member",
+        visibility: "public",
       });
+      profile = created.toJSON();
     }
 
-    // Unread notifications count
-    const unreadNotificationsCount = await prisma.notification.count({
-      where: {
-        recipientId: userId,
-        readAt: null,
-      },
+    const unreadNotificationsCount = await NotificationModel.countDocuments({
+      recipientId: viewerId,
+      readAt: null,
     });
 
-    // Load avatar media asset if set
     let avatarAsset = null;
-    if (profile.avatarAssetId) {
-      avatarAsset = await prisma.mediaAsset.findUnique({
-        where: { id: profile.avatarAssetId },
-      });
-    }
-
     let coverAsset = null;
-    if (profile.coverAssetId) {
-      coverAsset = await prisma.mediaAsset.findUnique({
-        where: { id: profile.coverAssetId },
-      });
+
+    if ((profile as any).avatarAssetId) {
+      avatarAsset = await MediaAssetModel.findOne({
+        $or: [{ _id: (profile as any).avatarAssetId }, { id: (profile as any).avatarAssetId }],
+      }).lean();
     }
 
-    const summary = serializeUserSummary(profile, avatarAsset);
-
-    // Get live evaluated streak with break detection
-    const evaluatedStreak = await getUserStreak(userId);
+    if ((profile as any).coverAssetId) {
+      coverAsset = await MediaAssetModel.findOne({
+        $or: [{ _id: (profile as any).coverAssetId }, { id: (profile as any).coverAssetId }],
+      }).lean();
+    }
 
     return res.json({
-      user: summary,
-      profile: {
-        ...summary,
-        bio: profile.bio,
-        location: profile.location,
-        department: profile.department,
-        studyYear: profile.studyYear,
-        visibility: profile.visibility,
-        showPresence: profile.showPresence,
+      user: {
+        ...serializeUserSummary(profile, avatarAsset),
         cover: serializeMediaAsset(coverAsset),
-        links: profile.links.map((l) => ({ kind: l.kind, handle: l.handle, url: l.url })),
-      },
-      streak: {
-        current: evaluatedStreak.currentStreak,
-        longest: evaluatedStreak.bestStreak,
-        lastLocalDate: evaluatedStreak.lastActiveDate,
-        checkedInToday: evaluatedStreak.checkedInToday,
+        bio: (profile as any).bio,
+        location: (profile as any).location,
+        followersCount: (profile as any).followersCount || 0,
+        followingCount: (profile as any).followingCount || 0,
+        postsCount: (profile as any).postsCount || 0,
       },
       unreadNotificationsCount,
+      unreadMessagesCount: 0,
+      serverTime: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("[Meta /me Error]:", err);
-    return res.status(500).json({ success: false, message: "Failed to fetch user state" });
+    next(err);
   }
 });
 

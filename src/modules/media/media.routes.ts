@@ -2,10 +2,13 @@ import { Router, Response } from "express";
 import { requireAuth, AuthRequest } from "../../middleware/auth.middleware.js";
 import { uploadSingle } from "../../middleware/upload.middleware.js";
 import { uploadImageToCloudinary } from "../../services/cloudinary.service.js";
-import { prisma } from "../../utils/prisma.js";
 import { AppError } from "../../platform/errors.js";
 import { serializeMediaAsset } from "../../platform/serializer.js";
 import { routeParam } from "../../utils/routeParam.js";
+import {
+  MediaAssetModel,
+  ProfileModel,
+} from "../../models/social.models.js";
 
 const router = Router();
 
@@ -21,29 +24,27 @@ router.post("/media/upload-file", requireAuth, uploadSingle, async (req: AuthReq
     const fileBuffer = Buffer.from((req.file as Express.Multer.File).buffer);
     const result = await uploadImageToCloudinary(fileBuffer, { folder });
 
-    const asset = await prisma.mediaAsset.create({
-      data: {
-        ownerId,
-        purpose: (req.body.purpose as string) || "post",
-        status: "ready",
-        storageKey: result.secure_url,
-        mime: req.file.mimetype || "image/jpeg",
-        bytes: result.bytes ? BigInt(result.bytes) : null,
-        width: result.width || 800,
-        height: result.height || 600,
-        variants: {
-          original: result.secure_url,
-          sm: result.secure_url,
-          md: result.secure_url,
-          lg: result.secure_url,
-        },
-        readyAt: new Date(),
+    const asset = await MediaAssetModel.create({
+      ownerId,
+      purpose: (req.body.purpose as string) || "post",
+      status: "ready",
+      storageKey: result.secure_url,
+      mime: req.file.mimetype || "image/jpeg",
+      bytes: result.bytes || null,
+      width: result.width || 800,
+      height: result.height || 600,
+      variants: {
+        original: result.secure_url,
+        sm: result.secure_url,
+        md: result.secure_url,
+        lg: result.secure_url,
       },
+      readyAt: new Date(),
     });
 
     return res.status(201).json({
-      assetId: asset.id,
-      asset: serializeMediaAsset(asset),
+      assetId: asset._id.toString(),
+      asset: serializeMediaAsset(asset.toJSON()),
     });
   } catch (err) {
     next(err);
@@ -60,24 +61,22 @@ router.post("/media/uploads", requireAuth, async (req: AuthRequest, res: Respons
       throw AppError.badRequest("storageKey or media URL is required", "MISSING_STORAGE_KEY");
     }
 
-    const asset = await prisma.mediaAsset.create({
-      data: {
-        ownerId,
-        purpose,
-        status: "ready",
-        storageKey,
-        mime,
-        bytes: bytes ? BigInt(bytes) : null,
-        width: width ? Number(width) : 800,
-        height: height ? Number(height) : 600,
-        variants: variants && typeof variants === "object" ? variants : {},
-        readyAt: new Date(),
-      },
+    const asset = await MediaAssetModel.create({
+      ownerId,
+      purpose,
+      status: "ready",
+      storageKey,
+      mime,
+      bytes: bytes ? Number(bytes) : null,
+      width: width ? Number(width) : 800,
+      height: height ? Number(height) : 600,
+      variants: variants && typeof variants === "object" ? variants : {},
+      readyAt: new Date(),
     });
 
     return res.status(201).json({
-      assetId: asset.id,
-      asset: serializeMediaAsset(asset),
+      assetId: asset._id.toString(),
+      asset: serializeMediaAsset(asset.toJSON()),
     });
   } catch (err) {
     next(err);
@@ -88,7 +87,9 @@ router.post("/media/uploads", requireAuth, async (req: AuthRequest, res: Respons
 router.get("/media/:id", async (req, res: Response, next) => {
   try {
     const id = routeParam(req.params.id);
-    const asset = await prisma.mediaAsset.findUnique({ where: { id } });
+    const asset = await MediaAssetModel.findOne({
+      $or: [{ _id: id }, { id }],
+    }).lean();
     if (!asset) throw AppError.notFound("Media asset not found", "ASSET_NOT_FOUND");
 
     return res.json({ asset: serializeMediaAsset(asset) });
@@ -104,13 +105,15 @@ router.post("/me/avatar", requireAuth, async (req: AuthRequest, res: Response, n
     const { assetId } = req.body;
     if (!assetId) throw AppError.badRequest("assetId is required", "MISSING_ASSET_ID");
 
-    const asset = await prisma.mediaAsset.findUnique({ where: { id: assetId } });
+    const asset = await MediaAssetModel.findOne({
+      $or: [{ _id: assetId }, { id: assetId }],
+    }).lean();
     if (!asset) throw AppError.notFound("Asset not found", "ASSET_NOT_FOUND");
 
-    await prisma.profile.update({
-      where: { userId },
-      data: { avatarAssetId: assetId },
-    });
+    await ProfileModel.updateOne(
+      { userId },
+      { $set: { avatarAssetId: assetId } }
+    );
 
     return res.json({ success: true, avatar: serializeMediaAsset(asset) });
   } catch (err) {
@@ -125,13 +128,15 @@ router.post("/me/cover", requireAuth, async (req: AuthRequest, res: Response, ne
     const { assetId } = req.body;
     if (!assetId) throw AppError.badRequest("assetId is required", "MISSING_ASSET_ID");
 
-    const asset = await prisma.mediaAsset.findUnique({ where: { id: assetId } });
+    const asset = await MediaAssetModel.findOne({
+      $or: [{ _id: assetId }, { id: assetId }],
+    }).lean();
     if (!asset) throw AppError.notFound("Asset not found", "ASSET_NOT_FOUND");
 
-    await prisma.profile.update({
-      where: { userId },
-      data: { coverAssetId: assetId },
-    });
+    await ProfileModel.updateOne(
+      { userId },
+      { $set: { coverAssetId: assetId } }
+    );
 
     return res.json({ success: true, cover: serializeMediaAsset(asset) });
   } catch (err) {

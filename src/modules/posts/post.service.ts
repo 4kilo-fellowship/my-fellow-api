@@ -1,11 +1,17 @@
-import { prisma } from "../../utils/prisma.js";
 import { serializeMediaAsset, serializeUserSummary } from "../../platform/serializer.js";
 import { PostResponse } from "../../platform/types.js";
+import {
+  PostModel,
+  LikeModel,
+  BookmarkModel,
+  ProfileModel,
+  MediaAssetModel,
+} from "../../models/social.models.js";
 
 export async function hydratePosts(posts: any[], viewerId?: string): Promise<PostResponse[]> {
   if (posts.length === 0) return [];
 
-  const postIds = posts.map((p) => p.id);
+  const postIds = posts.map((p) => p.id || p._id?.toString());
   const authorIds = Array.from(new Set(posts.map((p) => p.authorId)));
 
   // 1. Fetch viewer interactions in parallel if viewerId is present
@@ -15,59 +21,65 @@ export async function hydratePosts(posts: any[], viewerId?: string): Promise<Pos
 
   if (viewerId) {
     const [likes, reposts, bookmarks] = await Promise.all([
-      prisma.like.findMany({
-        where: { userId: viewerId, postId: { in: postIds } },
-        select: { postId: true },
-      }),
-      prisma.post.findMany({
-        where: {
-          authorId: viewerId,
-          kind: "repost",
-          repostOfId: { in: postIds },
-          deletedAt: null,
-        },
-        select: { repostOfId: true },
-      }),
-      prisma.bookmark.findMany({
-        where: { userId: viewerId, postId: { in: postIds } },
-        select: { postId: true },
-      }),
+      LikeModel.find({ userId: viewerId, postId: { $in: postIds } }).select("postId").lean(),
+      PostModel.find({
+        authorId: viewerId,
+        kind: "repost",
+        repostOfId: { $in: postIds },
+        deletedAt: null,
+      }).select("repostOfId").lean(),
+      BookmarkModel.find({ userId: viewerId, postId: { $in: postIds } }).select("postId").lean(),
     ]);
 
-    viewerLikes = new Set(likes.map((l) => l.postId));
-    viewerReposts = new Set(reposts.map((r) => r.repostOfId!).filter(Boolean));
-    viewerBookmarks = new Set(bookmarks.map((b) => b.postId));
+    viewerLikes = new Set(likes.map((l: any) => l.postId));
+    viewerReposts = new Set(reposts.map((r: any) => r.repostOfId).filter(Boolean));
+    viewerBookmarks = new Set(bookmarks.map((b: any) => b.postId));
   }
 
   // 2. Fetch authors and their avatars
-  const authors = await prisma.profile.findMany({
-    where: { userId: { in: authorIds } },
-    include: { ministryMemberships: { include: { ministry: true } } },
-  });
+  const authors = await ProfileModel.find({ userId: { $in: authorIds } }).lean();
   const authorAvatarIds = authors
-    .map((a) => a.avatarAssetId)
+    .map((a: any) => a.avatarAssetId)
     .filter((id): id is string => Boolean(id));
-  const avatars = await prisma.mediaAsset.findMany({ where: { id: { in: authorAvatarIds } } });
-  const avatarMap = new Map(avatars.map((a) => [a.id, a]));
+  const avatars = await MediaAssetModel.find({
+    $or: [{ _id: { $in: authorAvatarIds } }, { id: { $in: authorAvatarIds } }],
+  }).lean();
+  const avatarMap = new Map(avatars.map((a: any) => [a._id ? a._id.toString() : a.id, a]));
   const authorMap = new Map(
-    authors.map((a) => [
+    authors.map((a: any) => [
       a.userId,
       serializeUserSummary(a, a.avatarAssetId ? avatarMap.get(a.avatarAssetId) : null),
     ])
   );
 
-  // 3. Fetch media for these posts
-  const postMedias = await prisma.postMedia.findMany({
-    where: { postId: { in: postIds } },
-    include: { asset: true },
-    orderBy: { position: "asc" },
-  });
+  // 3. Media map for these posts
   const mediaMap = new Map<string, any[]>();
-  for (const pm of postMedias) {
-    const list = mediaMap.get(pm.postId) || [];
-    const serialized = serializeMediaAsset(pm.asset, pm.altText);
-    if (serialized) list.push(serialized);
-    mediaMap.set(pm.postId, list);
+  const allMediaAssetIds: string[] = [];
+  for (const p of posts) {
+    const pId = p.id || p._id?.toString();
+    const mediaItems = p.media || [];
+    for (const m of mediaItems) {
+      if (m.assetId) allMediaAssetIds.push(m.assetId);
+    }
+  }
+
+  if (allMediaAssetIds.length > 0) {
+    const postAssets = await MediaAssetModel.find({
+      $or: [{ _id: { $in: allMediaAssetIds } }, { id: { $in: allMediaAssetIds } }],
+    }).lean();
+    const assetObjMap = new Map(postAssets.map((a: any) => [a._id ? a._id.toString() : a.id, a]));
+
+    for (const p of posts) {
+      const pId = p.id || p._id?.toString();
+      const list: any[] = [];
+      const mediaItems = p.media || [];
+      for (const m of mediaItems) {
+        const foundAsset = assetObjMap.get(m.assetId);
+        const serialized = serializeMediaAsset(foundAsset, m.altText);
+        if (serialized) list.push(serialized);
+      }
+      mediaMap.set(pId, list);
+    }
   }
 
   // 4. Repost & Quote target hydration
@@ -81,52 +93,60 @@ export async function hydratePosts(posts: any[], viewerId?: string): Promise<Pos
 
   let targetPostsMap = new Map<string, any>();
   if (targetIds.length > 0) {
-    const targets = await prisma.post.findMany({
-      where: { id: { in: targetIds }, deletedAt: null },
-      include: {
-        author: { include: { ministryMemberships: { include: { ministry: true } } } },
-        media: { include: { asset: true }, orderBy: { position: "asc" } },
-      },
-    });
+    const targets = await PostModel.find({
+      _id: { $in: targetIds },
+      deletedAt: null,
+    }).lean();
 
-    const targetAvatarIds = targets
-      .map((t) => t.author?.avatarAssetId)
+    const targetAuthorIds = targets.map((t: any) => t.authorId);
+    const targetProfiles = await ProfileModel.find({ userId: { $in: targetAuthorIds } }).lean();
+    const targetAvatarIds = targetProfiles
+      .map((tp: any) => tp.avatarAssetId)
       .filter((id): id is string => Boolean(id));
-    const targetAvatars = await prisma.mediaAsset.findMany({
-      where: { id: { in: targetAvatarIds } },
-    });
-    const targetAvatarMap = new Map(targetAvatars.map((a) => [a.id, a]));
+    const targetAvatars = await MediaAssetModel.find({
+      $or: [{ _id: { $in: targetAvatarIds } }, { id: { $in: targetAvatarIds } }],
+    }).lean();
+    const targetAvatarMap = new Map(targetAvatars.map((a: any) => [a._id ? a._id.toString() : a.id, a]));
+    const targetProfileMap = new Map(
+      targetProfiles.map((tp: any) => [
+        tp.userId,
+        serializeUserSummary(tp, tp.avatarAssetId ? targetAvatarMap.get(tp.avatarAssetId) : null),
+      ])
+    );
 
     for (const t of targets) {
-      targetPostsMap.set(t.id, {
-        id: t.id,
+      const tId = t._id ? t._id.toString() : t.id;
+      targetPostsMap.set(tId, {
+        id: tId,
         kind: t.kind as any,
-        author: serializeUserSummary(
-          t.author,
-          t.author?.avatarAssetId ? targetAvatarMap.get(t.author.avatarAssetId) : null
-        ),
+        author: targetProfileMap.get(t.authorId) || {
+          id: t.authorId,
+          username: "unknown",
+          displayName: "Unknown Member",
+          avatar: null,
+          isVerified: false,
+        },
         body: t.body,
-        createdAt: t.createdAt.toISOString(),
-        editedAt: t.editedAt?.toISOString() || null,
-        media: (t.media || [])
-          .map((m: any) => serializeMediaAsset(m.asset, m.altText))
-          .filter(Boolean),
+        createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
+        editedAt: t.editedAt ? new Date(t.editedAt).toISOString() : null,
+        media: [],
         counts: {
-          replies: t.replyCount,
-          reposts: t.repostCount,
-          likes: t.likeCount,
-          quotes: t.quoteCount,
+          replies: t.replyCount || 0,
+          reposts: t.repostCount || 0,
+          likes: t.likeCount || 0,
+          quotes: t.quoteCount || 0,
         },
         viewer: {
-          liked: viewerLikes.has(t.id),
-          reposted: viewerReposts.has(t.id),
-          bookmarked: viewerBookmarks.has(t.id),
+          liked: viewerLikes.has(tId),
+          reposted: viewerReposts.has(tId),
+          bookmarked: viewerBookmarks.has(tId),
         },
       });
     }
   }
 
   return posts.map((p) => {
+    const pId = p.id || p._id?.toString();
     const author = authorMap.get(p.authorId) || {
       id: p.authorId,
       username: "unknown",
@@ -136,28 +156,26 @@ export async function hydratePosts(posts: any[], viewerId?: string): Promise<Pos
     };
 
     return {
-      id: p.id,
+      id: pId,
       kind: p.kind as any,
       author,
       body: p.body,
-      createdAt: p.createdAt.toISOString(),
-      editedAt: p.editedAt?.toISOString() || null,
-      media: mediaMap.get(p.id) || [],
-      replyTo: p.parent?.author
-        ? { id: p.parent.id, authorUsername: p.parent.author.username }
-        : undefined,
+      createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
+      editedAt: p.editedAt ? new Date(p.editedAt).toISOString() : null,
+      media: mediaMap.get(pId) || [],
+      replyTo: p.parentId ? { id: p.parentId, authorUsername: "fellowship" } : undefined,
       repostOf: p.repostOfId ? targetPostsMap.get(p.repostOfId) || null : null,
       quoted: p.quotedId ? targetPostsMap.get(p.quotedId) || null : null,
       counts: {
-        replies: p.replyCount,
-        reposts: p.repostCount,
-        likes: p.likeCount,
-        quotes: p.quoteCount,
+        replies: p.replyCount || 0,
+        reposts: p.repostCount || 0,
+        likes: p.likeCount || 0,
+        quotes: p.quoteCount || 0,
       },
       viewer: {
-        liked: viewerLikes.has(p.id),
-        reposted: viewerReposts.has(p.id),
-        bookmarked: viewerBookmarks.has(p.id),
+        liked: viewerLikes.has(pId),
+        reposted: viewerReposts.has(pId),
+        bookmarked: viewerBookmarks.has(pId),
       },
       tombstone: p.deletedAt ? "deleted" : undefined,
     };

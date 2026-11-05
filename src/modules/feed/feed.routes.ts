@@ -1,9 +1,14 @@
 import { Router, Response } from "express";
 import { requireAuth, AuthRequest } from "../../middleware/auth.middleware.js";
 import { optionalAuth } from "../../platform/auth.js";
-import { prisma } from "../../utils/prisma.js";
 import { hydratePosts } from "../posts/post.service.js";
 import { buildPaginatedResponse, decodeCursor } from "../../platform/pagination.js";
+import {
+  PostModel,
+  FollowModel,
+  BlockModel,
+  MuteModel,
+} from "../../models/social.models.js";
 
 const router = Router();
 
@@ -15,49 +20,44 @@ router.get("/feed/following", requireAuth, async (req: AuthRequest, res: Respons
     const cursor = decodeCursor(req.query.cursor as string);
 
     // Get followed IDs
-    const followRows = await prisma.follow.findMany({
-      where: { followerId: viewerId, status: "accepted" },
-      select: { followeeId: true },
-    });
-    const followedIds = [viewerId, ...followRows.map((f) => f.followeeId)];
+    const followRows = await FollowModel.find({ followerId: viewerId, status: "accepted" })
+      .select("followeeId")
+      .lean();
+    const followedIds = [viewerId, ...followRows.map((f: any) => f.followeeId)];
 
     // Get blocked and muted IDs
     const [blocks, blockedBy, mutes] = await Promise.all([
-      prisma.block.findMany({ where: { blockerId: viewerId }, select: { blockedId: true } }),
-      prisma.block.findMany({ where: { blockedId: viewerId }, select: { blockerId: true } }),
-      prisma.mute.findMany({ where: { muterId: viewerId }, select: { mutedId: true } }),
+      BlockModel.find({ blockerId: viewerId }).select("blockedId").lean(),
+      BlockModel.find({ blockedId: viewerId }).select("blockerId").lean(),
+      MuteModel.find({ muterId: viewerId }).select("mutedId").lean(),
     ]);
 
     const excludedAuthorIds = new Set([
-      ...blocks.map((b) => b.blockedId),
-      ...blockedBy.map((b) => b.blockerId),
-      ...mutes.map((m) => m.mutedId),
+      ...blocks.map((b: any) => b.blockedId),
+      ...blockedBy.map((b: any) => b.blockerId),
+      ...mutes.map((m: any) => m.mutedId),
     ]);
 
     const candidateAuthorIds = followedIds.filter((id) => !excludedAuthorIds.has(id));
 
-    const where: any = {
-      authorId: { in: candidateAuthorIds },
-      kind: { in: ["post", "repost", "quote"] },
+    const query: any = {
+      authorId: { $in: candidateAuthorIds },
+      kind: { $in: ["post", "repost", "quote"] },
       deletedAt: null,
     };
 
     if (cursor) {
-      where.createdAt = { lt: new Date(cursor.t) };
+      query.createdAt = { $lt: new Date(cursor.t) };
     }
 
-    const posts = await prisma.post.findMany({
-      where,
-      include: {
-        parent: { include: { author: true } },
-      },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: limit + 1,
-    });
+    const posts = await PostModel.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit + 1)
+      .lean();
 
-    const paginated = buildPaginatedResponse(posts, limit, (item) => ({
-      t: item.createdAt.toISOString(),
-      id: item.id,
+    const paginated = buildPaginatedResponse(posts, limit, (item: any) => ({
+      t: new Date(item.createdAt).toISOString(),
+      id: item._id.toString(),
     }));
 
     const hydrated = await hydratePosts(paginated.items, viewerId);
@@ -82,41 +82,37 @@ router.get("/feed/foryou", optionalAuth, async (req: AuthRequest, res: Response,
     let excludedAuthorIds = new Set<string>();
     if (viewerId) {
       const [blocks, blockedBy, mutes] = await Promise.all([
-        prisma.block.findMany({ where: { blockerId: viewerId }, select: { blockedId: true } }),
-        prisma.block.findMany({ where: { blockedId: viewerId }, select: { blockerId: true } }),
-        prisma.mute.findMany({ where: { muterId: viewerId }, select: { mutedId: true } }),
+        BlockModel.find({ blockerId: viewerId }).select("blockedId").lean(),
+        BlockModel.find({ blockedId: viewerId }).select("blockerId").lean(),
+        MuteModel.find({ muterId: viewerId }).select("mutedId").lean(),
       ]);
-      blocks.forEach((b) => excludedAuthorIds.add(b.blockedId));
-      blockedBy.forEach((b) => excludedAuthorIds.add(b.blockerId));
-      mutes.forEach((m) => excludedAuthorIds.add(m.mutedId));
+      blocks.forEach((b: any) => excludedAuthorIds.add(b.blockedId));
+      blockedBy.forEach((b: any) => excludedAuthorIds.add(b.blockerId));
+      mutes.forEach((m: any) => excludedAuthorIds.add(m.mutedId));
     }
 
-    const where: any = {
-      kind: { in: ["post", "repost", "quote"] },
+    const query: any = {
+      kind: { $in: ["post", "repost", "quote"] },
       deletedAt: null,
       visibility: "public",
     };
 
     if (excludedAuthorIds.size > 0) {
-      where.authorId = { notIn: Array.from(excludedAuthorIds) };
+      query.authorId = { $nin: Array.from(excludedAuthorIds) };
     }
 
     if (cursor) {
-      where.createdAt = { lt: new Date(cursor.t) };
+      query.createdAt = { $lt: new Date(cursor.t) };
     }
 
-    const posts = await prisma.post.findMany({
-      where,
-      include: {
-        parent: { include: { author: true } },
-      },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: limit + 1,
-    });
+    const posts = await PostModel.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit + 1)
+      .lean();
 
-    const paginated = buildPaginatedResponse(posts, limit, (item) => ({
-      t: item.createdAt.toISOString(),
-      id: item.id,
+    const paginated = buildPaginatedResponse(posts, limit, (item: any) => ({
+      t: new Date(item.createdAt).toISOString(),
+      id: item._id.toString(),
     }));
 
     const hydrated = await hydratePosts(paginated.items, viewerId);
@@ -141,23 +137,22 @@ router.get("/feed/head", optionalAuth, async (req: AuthRequest, res: Response, n
       return res.json({ newCount: 0 });
     }
 
-    const where: any = {
+    const query: any = {
       deletedAt: null,
-      kind: { in: ["post", "repost", "quote"] },
-      createdAt: { gt: new Date(since.t) },
+      kind: { $in: ["post", "repost", "quote"] },
+      createdAt: { $gt: new Date(since.t) },
     };
 
     if (viewerId) {
-      const followRows = await prisma.follow.findMany({
-        where: { followerId: viewerId, status: "accepted" },
-        select: { followeeId: true },
-      });
-      where.authorId = { in: [viewerId, ...followRows.map((f) => f.followeeId)] };
+      const followRows = await FollowModel.find({ followerId: viewerId, status: "accepted" })
+        .select("followeeId")
+        .lean();
+      query.authorId = { $in: [viewerId, ...followRows.map((f: any) => f.followeeId)] };
     } else {
-      where.visibility = "public";
+      query.visibility = "public";
     }
 
-    const count = await prisma.post.count({ where });
+    const count = await PostModel.countDocuments(query);
 
     return res.json({ newCount: Math.min(count, 50) });
   } catch (err) {

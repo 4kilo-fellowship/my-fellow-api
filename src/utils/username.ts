@@ -1,4 +1,4 @@
-import { prisma } from "./prisma.js";
+import { ProfileModel } from "../models/social.models.js";
 
 /**
  * Normalizes an input string into a safe, valid username format:
@@ -23,8 +23,8 @@ export function sanitizeUsername(input: string): string {
 }
 
 /**
- * Resolves an available unique username in PostgreSQL prisma.profile.
- * 
+ * Resolves an available unique username in MongoDB ProfileModel.
+ *
  * Algorithm:
  * 1. Sanitizes the user's desired Telegram handle.
  * 2. Checks if the base handle is available (or belongs to the same user).
@@ -57,25 +57,21 @@ export async function resolveUniqueUsername(
   }
 
   // 1. Try the base name directly
-  const existingWithBase = await prisma.profile.findFirst({
-    where: {
-      username: { equals: base, mode: "insensitive" },
-    },
-    select: { userId: true },
-  });
+  const existingWithBase = await ProfileModel.findOne({
+    username: new RegExp(`^${base}$`, "i"),
+  }).select("userId").lean();
 
-  if (!existingWithBase || existingWithBase.userId === userId) {
+  if (!existingWithBase || (existingWithBase as any).userId === userId) {
     return base;
   }
 
   // 2. Base is taken by another user! Try sequential suffixes: base_1, base_2, base_3, base_4, base_5
   for (let i = 1; i <= 5; i++) {
     const candidate = `${base}_${i}`;
-    const taken = await prisma.profile.findFirst({
-      where: { username: { equals: candidate, mode: "insensitive" } },
-      select: { userId: true },
-    });
-    if (!taken || taken.userId === userId) {
+    const taken = await ProfileModel.findOne({
+      username: new RegExp(`^${candidate}$`, "i"),
+    }).select("userId").lean();
+    if (!taken || (taken as any).userId === userId) {
       return candidate;
     }
   }
@@ -84,11 +80,10 @@ export async function resolveUniqueUsername(
   for (let attempt = 0; attempt < 10; attempt++) {
     const randomNum = Math.floor(10 + Math.random() * 890); // between 10 and 899
     const candidate = `${base}${randomNum}`;
-    const taken = await prisma.profile.findFirst({
-      where: { username: { equals: candidate, mode: "insensitive" } },
-      select: { userId: true },
-    });
-    if (!taken || taken.userId === userId) {
+    const taken = await ProfileModel.findOne({
+      username: new RegExp(`^${candidate}$`, "i"),
+    }).select("userId").lean();
+    if (!taken || (taken as any).userId === userId) {
       return candidate;
     }
   }

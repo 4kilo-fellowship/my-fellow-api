@@ -1,10 +1,15 @@
 import { Router, Response } from "express";
 import { requireAuth, AuthRequest } from "../../middleware/auth.middleware.js";
-import { prisma } from "../../utils/prisma.js";
 import { AppError } from "../../platform/errors.js";
 import { hydratePosts } from "../posts/post.service.js";
 import { buildPaginatedResponse, decodeCursor } from "../../platform/pagination.js";
 import { routeParam } from "../../utils/routeParam.js";
+import {
+  PostModel,
+  LikeModel,
+  BookmarkModel,
+  OutboxEventModel,
+} from "../../models/social.models.js";
 
 const router = Router();
 
@@ -14,47 +19,31 @@ router.put("/posts/:id/like", requireAuth, async (req: AuthRequest, res: Respons
     const userId = req.user!.sub;
     const postId = routeParam(req.params.id);
 
-    const post = await prisma.post.findUnique({
-      where: { id: postId, deletedAt: null },
-    });
+    const post = await PostModel.findOne({ _id: postId, deletedAt: null });
     if (!post) throw AppError.notFound("Post not found", "POST_NOT_FOUND");
 
-    const result = await prisma.$transaction(async (tx) => {
-      const existing = await tx.like.findUnique({
-        where: { userId_postId: { userId, postId } },
+    const existing = await LikeModel.findOne({ userId, postId });
+    if (existing) {
+      return res.json({ liked: true, likeCount: post.likeCount });
+    }
+
+    await LikeModel.create({ userId, postId });
+    post.likeCount = (post.likeCount || 0) + 1;
+    await post.save();
+
+    if (post.authorId !== userId) {
+      await OutboxEventModel.create({
+        type: "like.created",
+        aggregateId: postId,
+        payload: {
+          actorId: userId,
+          recipientId: post.authorId,
+          postId,
+        },
       });
+    }
 
-      if (existing) {
-        return { liked: true, likeCount: post.likeCount };
-      }
-
-      await tx.like.create({
-        data: { userId, postId },
-      });
-
-      const updated = await tx.post.update({
-        where: { id: postId },
-        data: { likeCount: { increment: 1 } },
-      });
-
-      if (post.authorId !== userId) {
-        await tx.outboxEvent.create({
-          data: {
-            type: "like.created",
-            aggregateId: postId,
-            payload: {
-              actorId: userId,
-              recipientId: post.authorId,
-              postId,
-            },
-          },
-        });
-      }
-
-      return { liked: true, likeCount: updated.likeCount };
-    });
-
-    return res.json(result);
+    return res.json({ liked: true, likeCount: post.likeCount });
   } catch (err) {
     next(err);
   }
@@ -66,29 +55,21 @@ router.delete("/posts/:id/like", requireAuth, async (req: AuthRequest, res: Resp
     const userId = req.user!.sub;
     const postId = routeParam(req.params.id);
 
-    const result = await prisma.$transaction(async (tx) => {
-      const existing = await tx.like.findUnique({
-        where: { userId_postId: { userId, postId } },
-      });
+    const deleted = await LikeModel.findOneAndDelete({ userId, postId });
+    if (!deleted) {
+      const p = await PostModel.findById(postId).lean();
+      return res.json({ liked: false, likeCount: (p as any)?.likeCount || 0 });
+    }
 
-      if (!existing) {
-        const p = await tx.post.findUnique({ where: { id: postId } });
-        return { liked: false, likeCount: p?.likeCount || 0 };
-      }
+    const post = await PostModel.findById(postId);
+    let newCount = 0;
+    if (post) {
+      post.likeCount = Math.max(0, (post.likeCount || 0) - 1);
+      await post.save();
+      newCount = post.likeCount;
+    }
 
-      await tx.like.delete({
-        where: { userId_postId: { userId, postId } },
-      });
-
-      const updated = await tx.post.update({
-        where: { id: postId },
-        data: { likeCount: { decrement: 1 } },
-      });
-
-      return { liked: false, likeCount: Math.max(0, updated.likeCount) };
-    });
-
-    return res.json(result);
+    return res.json({ liked: false, likeCount: newCount });
   } catch (err) {
     next(err);
   }
@@ -100,33 +81,19 @@ router.put("/posts/:id/bookmark", requireAuth, async (req: AuthRequest, res: Res
     const userId = req.user!.sub;
     const postId = routeParam(req.params.id);
 
-    const post = await prisma.post.findUnique({
-      where: { id: postId, deletedAt: null },
-    });
+    const post = await PostModel.findOne({ _id: postId, deletedAt: null });
     if (!post) throw AppError.notFound("Post not found", "POST_NOT_FOUND");
 
-    const result = await prisma.$transaction(async (tx) => {
-      const existing = await tx.bookmark.findUnique({
-        where: { userId_postId: { userId, postId } },
-      });
+    const existing = await BookmarkModel.findOne({ userId, postId });
+    if (existing) {
+      return res.json({ bookmarked: true });
+    }
 
-      if (existing) {
-        return { bookmarked: true };
-      }
+    await BookmarkModel.create({ userId, postId });
+    post.bookmarkCount = (post.bookmarkCount || 0) + 1;
+    await post.save();
 
-      await tx.bookmark.create({
-        data: { userId, postId },
-      });
-
-      await tx.post.update({
-        where: { id: postId },
-        data: { bookmarkCount: { increment: 1 } },
-      });
-
-      return { bookmarked: true };
-    });
-
-    return res.json(result);
+    return res.json({ bookmarked: true });
   } catch (err) {
     next(err);
   }
@@ -138,28 +105,16 @@ router.delete("/posts/:id/bookmark", requireAuth, async (req: AuthRequest, res: 
     const userId = req.user!.sub;
     const postId = routeParam(req.params.id);
 
-    const result = await prisma.$transaction(async (tx) => {
-      const existing = await tx.bookmark.findUnique({
-        where: { userId_postId: { userId, postId } },
-      });
-
-      if (!existing) {
-        return { bookmarked: false };
+    const deleted = await BookmarkModel.findOneAndDelete({ userId, postId });
+    if (deleted) {
+      const post = await PostModel.findById(postId);
+      if (post) {
+        post.bookmarkCount = Math.max(0, (post.bookmarkCount || 0) - 1);
+        await post.save();
       }
+    }
 
-      await tx.bookmark.delete({
-        where: { userId_postId: { userId, postId } },
-      });
-
-      await tx.post.update({
-        where: { id: postId },
-        data: { bookmarkCount: { decrement: 1 } },
-      });
-
-      return { bookmarked: false };
-    });
-
-    return res.json(result);
+    return res.json({ bookmarked: false });
   } catch (err) {
     next(err);
   }
@@ -172,32 +127,34 @@ router.get("/me/bookmarks", requireAuth, async (req: AuthRequest, res: Response,
     const limit = Math.min(Number(req.query.limit) || 20, 50);
     const cursor = decodeCursor(req.query.cursor as string);
 
-    const where: any = { userId };
+    const query: any = { userId };
     if (cursor) {
-      where.createdAt = { lt: new Date(cursor.t) };
+      query.createdAt = { $lt: new Date(cursor.t) };
     }
 
-    const bookmarkEntries = await prisma.bookmark.findMany({
-      where,
-      include: {
-        post: {
-          include: {
-            parent: { include: { author: true } },
-          },
-        },
-      },
-      orderBy: [{ createdAt: "desc" }, { postId: "desc" }],
-      take: limit + 1,
-    });
+    const bookmarkEntries = await BookmarkModel.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit + 1)
+      .lean();
 
-    const activeEntries = bookmarkEntries.filter((b) => b.post && !b.post.deletedAt);
-    const paginated = buildPaginatedResponse(activeEntries, limit, (item) => ({
-      t: item.createdAt.toISOString(),
+    const postIds = bookmarkEntries.map((b: any) => b.postId);
+    const posts = await PostModel.find({
+      _id: { $in: postIds },
+      deletedAt: null,
+    }).lean();
+    const postMap = new Map(posts.map((p: any) => [p._id.toString(), p]));
+
+    const activeEntries = bookmarkEntries
+      .map((b: any) => ({ ...b, post: postMap.get(b.postId) }))
+      .filter((b: any) => Boolean(b.post));
+
+    const paginated = buildPaginatedResponse(activeEntries, limit, (item: any) => ({
+      t: new Date(item.createdAt).toISOString(),
       id: item.postId,
     }));
 
     const hydratedPosts = await hydratePosts(
-      paginated.items.map((i) => i.post),
+      paginated.items.map((i: any) => i.post),
       userId
     );
 

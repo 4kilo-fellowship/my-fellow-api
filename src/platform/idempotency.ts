@@ -1,6 +1,6 @@
 import crypto from "crypto";
-import { Request, Response, NextFunction } from "express";
-import { prisma } from "../utils/prisma.js";
+import { Response, NextFunction } from "express";
+import { IdempotencyKeyModel } from "../models/social.models.js";
 import { AppError } from "./errors.js";
 import { AuthRequest } from "../middleware/auth.middleware.js";
 
@@ -27,14 +27,10 @@ export function idempotencyMiddleware() {
       .digest("hex");
 
     try {
-      const existing = await prisma.idempotencyKey.findUnique({
-        where: {
-          userId_key: {
-            userId,
-            key,
-          },
-        },
-      });
+      const existing = await IdempotencyKeyModel.findOne({
+        userId,
+        key,
+      }).lean();
 
       if (existing) {
         if (existing.requestHash !== requestHash) {
@@ -49,12 +45,10 @@ export function idempotencyMiddleware() {
         }
       } else {
         // Record key as pending
-        await prisma.idempotencyKey.create({
-          data: {
-            userId,
-            key,
-            requestHash,
-          },
+        await IdempotencyKeyModel.create({
+          userId,
+          key,
+          requestHash,
         });
       }
 
@@ -62,17 +56,17 @@ export function idempotencyMiddleware() {
       const originalJson = res.json.bind(res);
       res.json = (body: any) => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          prisma.idempotencyKey
-            .update({
-              where: { userId_key: { userId, key } },
-              data: {
+          IdempotencyKeyModel.updateOne(
+            { userId, key },
+            {
+              $set: {
                 responseStatus: res.statusCode,
                 responseBody: body,
               },
-            })
-            .catch((err) => {
-              console.error("[Idempotency] Failed to store response body:", err);
-            });
+            }
+          ).catch((err) => {
+            console.error("[Idempotency] Failed to store response body:", err);
+          });
         }
         return originalJson(body);
       };

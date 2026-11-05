@@ -1,7 +1,6 @@
 import { Router, Response } from "express";
 import { requireAuth, AuthRequest } from "../../middleware/auth.middleware.js";
 import { optionalAuth } from "../../platform/auth.js";
-import { prisma } from "../../utils/prisma.js";
 import { AppError } from "../../platform/errors.js";
 import {
   serializeMediaAsset,
@@ -14,6 +13,15 @@ import { routeParam } from "../../utils/routeParam.js";
 import { getUserStreak } from "../streaks/streak.service.js";
 import { hydratePosts } from "../posts/post.service.js";
 import { UserModel } from "../../models/user.model.js";
+import {
+  ProfileModel,
+  PostModel,
+  FollowModel,
+  BlockModel,
+  MuteModel,
+  HighlightModel,
+  MediaAssetModel,
+} from "../../models/social.models.js";
 import mongoose from "mongoose";
 
 const router = Router();
@@ -42,79 +50,103 @@ async function resolveMongoFallbackProfile(cleanParam: string, viewerId?: string
     return null;
   }
 
-  const id = isOfficial ? "4kilofellowship" : user!._id.toString();
-  const username = isOfficial ? "4kilofellowship" : (user!.telegramUserName || user!.fullName.toLowerCase().replace(/\s+/g, "_"));
-  const displayName = isOfficial ? "4 Kilo Fellowship" : (user!.fullName || "Fellowship Member");
+  const id = isOfficial ? "4kilofellowship" : (user as any)!._id.toString();
+  const username = isOfficial ? "4kilofellowship" : ((user as any)!.telegramUserName ? (user as any)!.telegramUserName.replace(/^@/, "") : `user_${id.slice(-6)}`);
+  const displayName = isOfficial ? "4 Kilo Christian Students Fellowship" : ((user as any)!.fullName || "Fellowship Member");
   const avatarUrl = isOfficial
-    ? "https://images.unsplash.com/photo-1544427920-c49ccfb85579?auto=format&fit=crop&w=400&q=80"
-    : (user!.profileImage || null);
-  const avatar: MediaRef | null = avatarUrl
-    ? {
-        id: `avatar-${id}`,
-        kind: "image",
-        width: 400,
-        height: 400,
-        urls: {
-          sm: avatarUrl,
-          md: avatarUrl,
-          lg: avatarUrl,
-          original: avatarUrl,
-        },
-      }
-    : null;
+    ? "https://res.cloudinary.com/doi9bg69o/image/upload/v1793867306/my-fellow/fellowship-avatar.png"
+    : ((user as any)!.profileImage || null);
+
+  const fallbackAvatar: MediaRef | null = avatarUrl ? {
+    id: `avatar-${id}`,
+    kind: "image",
+    width: 400,
+    height: 400,
+    urls: {
+      sm: avatarUrl,
+      md: avatarUrl,
+      lg: avatarUrl,
+      original: avatarUrl
+    }
+  } : null;
+
+  const fallbackCover: MediaRef = {
+    id: "default-cover",
+    kind: "image",
+    width: 1200,
+    height: 400,
+    urls: {
+      sm: "https://images.unsplash.com/photo-1519491050282-cf00c82424b4?auto=format&fit=crop&w=800&q=80",
+      md: "https://images.unsplash.com/photo-1519491050282-cf00c82424b4?auto=format&fit=crop&w=1200&q=80",
+      lg: "https://images.unsplash.com/photo-1519491050282-cf00c82424b4?auto=format&fit=crop&w=1600&q=80",
+      original: "https://images.unsplash.com/photo-1519491050282-cf00c82424b4"
+    }
+  };
+
   const bio = isOfficial
-    ? "Official channel for 4 Kilo Christian Students Fellowship (AAU ECSF). Rooted in Christ, growing together in prayer, devotion, and brotherly love."
-    : (user!.department ? `Student in ${user!.department} • 4 Kilo Fellowship` : "4 Kilo Christian Students Fellowship Member");
-  const department = isOfficial ? "Campus Ministry & Counseling" : (user!.department || "AAU 4 Kilo Campus");
-  const role = isOfficial ? "Fellowship Leadership" : (user!.role === "admin" ? "Admin / Leadership" : "Fellowship Member");
+    ? "The official campus fellowship at AAU 4 Kilo Campus. Preaching Christ, making disciples, and walking in fellowship. Daily morning prayer 6:00 AM."
+    : ((user as any)?.department ? `${(user as any).department} student walking faithfully in Christ.` : "Fellowship member at AAU 4 Kilo Campus.");
+
+  const studyYear = (user as any)?.yearOfStudy ? parseInt(String((user as any).yearOfStudy), 10) : undefined;
+  const academic = {
+    department: (user as any)?.department || "Engineering",
+    studyYear: isNaN(studyYear as number) ? 2 : studyYear,
+    label: getAcademicLabel((user as any)?.department || "Engineering", isNaN(studyYear as number) ? 2 : studyYear)
+  };
+
+  let isFollowing = false;
+  if (viewerId) {
+    const f = await FollowModel.findOne({ followerId: viewerId, followeeId: id, status: "accepted" }).lean();
+    isFollowing = Boolean(f);
+  }
+
+  const followersCount = await FollowModel.countDocuments({ followeeId: id, status: "accepted" });
+  const followingCount = await FollowModel.countDocuments({ followerId: id, status: "accepted" });
+  const postsCount = await PostModel.countDocuments({ authorId: id, deletedAt: null });
 
   return {
     id,
     username,
     displayName,
-    avatar,
-    cover: null,
+    avatar: fallbackAvatar,
+    cover: fallbackCover,
     bio,
-    location: "Addis Ababa, Ethiopia",
-    joinedAt: new Date(2024, 0, 1).toISOString(),
+    location: "4 Kilo Campus, AAU",
+    joinedAt: (user as any)?.createdAt ? new Date((user as any).createdAt).toISOString() : new Date().toISOString(),
+    isVerified: isOfficial || (user as any)?.role === "admin" || (user as any)?.role === "leader",
+    fellowshipRole: isOfficial ? "Official Fellowship" : ((user as any)?.team || (user as any)?.role || "Fellowship Member"),
+    ministryBadge: isOfficial ? "4 Kilo Campus ECSF" : ((user as any)?.team || "Student Ministry"),
     links: [
       {
         kind: "telegram",
-        handle: isOfficial ? "@aau4kilofellowship" : (user!.telegramUserName ? `@${user!.telegramUserName}` : undefined),
-        url: isOfficial ? "https://t.me/aau4kilofellowship" : (user!.telegramUserName ? `https://t.me/${user!.telegramUserName}` : "https://t.me/aau4kilofellowship"),
-      },
+        handle: username,
+        url: `https://t.me/${username}`
+      }
     ],
-    academic: {
-      department,
-      studyYear: undefined,
-      label: department,
-    },
+    academic,
     badges: [
-      { kind: "role", label: role },
-      ...(isOfficial ? [{ kind: "ministry" as const, label: "Counseling & Discipleship" }] : []),
+      { kind: "ministry", label: isOfficial ? "Main Fellowship" : ((user as any)?.team || "General Ministry") },
+      { kind: "academic", label: academic.label || "AAU Student" },
+      { kind: "role", label: isOfficial ? "Official" : "Member" }
     ],
-    streak: null,
+    streak: { current: 1 },
     counts: {
-      following: isOfficial ? 12 : 24,
-      connects: isOfficial ? 1450 : 88,
-      reflections: isOfficial ? 48 : 6,
+      following: followingCount,
+      connects: followersCount,
+      reflections: postsCount
     },
-    presence: {
-      online: true,
-      lastSeenAt: new Date().toISOString(),
-    },
+    presence: { online: true },
     viewer: {
       isSelf: viewerId === id,
-      following: false,
+      following: isFollowing,
       followedBy: false,
       pendingRequest: false,
       blocked: false,
       blockedBy: false,
-      muted: false,
+      muted: false
     },
     followedByPreview: { total: 0, users: [] },
-    highlights: [],
-    isVerified: isOfficial || user?.role === "admin" || user?.role === "super_admin",
+    highlights: []
   };
 }
 
@@ -125,34 +157,12 @@ router.get("/profiles/:username", optionalAuth, async (req: AuthRequest, res: Re
     const cleanParam = rawUsername.replace(/^@/, "");
     const viewerId = req.user?.sub;
 
-    let profile = null;
-    try {
-      profile = await prisma.profile.findFirst({
-        where: {
-          OR: [
-            { userId: cleanParam },
-            {
-              username: {
-                equals: cleanParam,
-                mode: "insensitive",
-              },
-            },
-          ],
-        },
-        include: {
-          links: { orderBy: { position: "asc" } },
-          streak: true,
-          ministryMemberships: {
-            include: { ministry: true },
-          },
-          highlights: {
-            orderBy: { position: "asc" },
-          },
-        },
-      });
-    } catch {
-      // Prisma or Postgres unavailable, fallback below
-    }
+    let profile = await ProfileModel.findOne({
+      $or: [
+        { userId: cleanParam },
+        { username: new RegExp(`^${cleanParam}$`, "i") },
+      ],
+    }).lean();
 
     if (!profile) {
       const fallback = await resolveMongoFallbackProfile(cleanParam, viewerId);
@@ -162,196 +172,149 @@ router.get("/profiles/:username", optionalAuth, async (req: AuthRequest, res: Re
       throw AppError.notFound("Profile not found", "PROFILE_NOT_FOUND");
     }
 
-    const targetUserId = profile.userId;
+    const targetUserId = (profile as any).userId;
     const isSelf = viewerId === targetUserId;
 
-    // Check blocks
-    let blocked = false;
-    let blockedBy = false;
-    let muted = false;
-    let following = false;
-    let followedBy = false;
-    let pendingRequest = false;
+    // Fetch blocks and mutes
+    let isFollowing = false;
+    let isFollowedBy = false;
+    let isPendingRequest = false;
+    let isBlocked = false;
+    let isBlockedBy = false;
+    let isMuted = false;
 
     if (viewerId && !isSelf) {
-      const [blockRecord, blockedByRecord, muteRecord, followRecord, reverseFollowRecord] =
-        await Promise.all([
-          prisma.block.findUnique({
-            where: { blockerId_blockedId: { blockerId: viewerId, blockedId: targetUserId } },
-          }),
-          prisma.block.findUnique({
-            where: { blockerId_blockedId: { blockerId: targetUserId, blockedId: viewerId } },
-          }),
-          prisma.mute.findUnique({
-            where: { muterId_mutedId: { muterId: viewerId, mutedId: targetUserId } },
-          }),
-          prisma.follow.findUnique({
-            where: { followerId_followeeId: { followerId: viewerId, followeeId: targetUserId } },
-          }),
-          prisma.follow.findUnique({
-            where: { followerId_followeeId: { followerId: targetUserId, followeeId: viewerId } },
-          }),
-        ]);
+      const [blockTo, blockFrom, mute, followTo, followFrom] = await Promise.all([
+        BlockModel.findOne({ blockerId: viewerId, blockedId: targetUserId }).lean(),
+        BlockModel.findOne({ blockerId: targetUserId, blockedId: viewerId }).lean(),
+        MuteModel.findOne({ muterId: viewerId, mutedId: targetUserId }).lean(),
+        FollowModel.findOne({ followerId: viewerId, followeeId: targetUserId }).lean(),
+        FollowModel.findOne({ followerId: targetUserId, followeeId: viewerId }).lean(),
+      ]);
 
-      blocked = !!blockRecord;
-      blockedBy = !!blockedByRecord;
-      muted = !!muteRecord;
-
-      if (followRecord) {
-        if (followRecord.status === "accepted") {
-          following = true;
-        } else {
-          pendingRequest = true;
-        }
-      }
-
-      followedBy = !!reverseFollowRecord && reverseFollowRecord.status === "accepted";
-
-      // Symmetric privacy: if blockedBy, treat as 404 to avoid confirming existence
-      if (blockedBy) {
-        throw AppError.notFound("Profile not found", "PROFILE_NOT_FOUND");
-      }
+      isBlocked = Boolean(blockTo);
+      isBlockedBy = Boolean(blockFrom);
+      isMuted = Boolean(mute);
+      isFollowing = (followTo as any)?.status === "accepted";
+      isPendingRequest = (followTo as any)?.status === "pending";
+      isFollowedBy = (followFrom as any)?.status === "accepted";
     }
 
-    // Load assets
+    if (isBlockedBy) {
+      throw AppError.notFound("Profile not found");
+    }
+
+    // Resolve avatar and cover
     let avatarAsset = null;
-    if (profile.avatarAssetId) {
-      avatarAsset = await prisma.mediaAsset.findUnique({ where: { id: profile.avatarAssetId } });
-    }
-
     let coverAsset = null;
-    if (profile.coverAssetId) {
-      coverAsset = await prisma.mediaAsset.findUnique({ where: { id: profile.coverAssetId } });
+
+    if ((profile as any).avatarAssetId) {
+      avatarAsset = await MediaAssetModel.findOne({
+        $or: [{ _id: (profile as any).avatarAssetId }, { id: (profile as any).avatarAssetId }],
+      }).lean();
+    }
+    if ((profile as any).coverAssetId) {
+      coverAsset = await MediaAssetModel.findOne({
+        $or: [{ _id: (profile as any).coverAssetId }, { id: (profile as any).coverAssetId }],
+      }).lean();
     }
 
-    // Followed by preview (mutuals): users viewer follows who also follow target profile
-    let followedByPreview: { total: number; users: UserSummary[] } = { total: 0, users: [] };
+    // Mutual follows preview
+    let followedByPreviewUsers: UserSummary[] = [];
+    let totalMutuals = 0;
+
     if (viewerId && !isSelf) {
-      const mutualFollows = await prisma.follow.findMany({
-        where: {
-          followeeId: targetUserId,
-          status: "accepted",
-          follower: {
-            followers: {
-              some: {
-                followerId: viewerId,
-                status: "accepted",
-              },
-            },
-          },
-        },
-        include: {
-          follower: true,
-        },
-        take: 3,
+      const targetFollowers = await FollowModel.find({ followeeId: targetUserId, status: "accepted" }).select("followerId").lean();
+      const targetFollowerIds = targetFollowers.map((f: any) => f.followerId);
+
+      const viewerFollowsTargetFollowers = await FollowModel.find({
+        followerId: viewerId,
+        followeeId: { $in: targetFollowerIds },
+        status: "accepted",
+      }).limit(3).lean();
+
+      totalMutuals = await FollowModel.countDocuments({
+        followerId: viewerId,
+        followeeId: { $in: targetFollowerIds },
+        status: "accepted",
       });
 
-      const totalMutuals = await prisma.follow.count({
-        where: {
-          followeeId: targetUserId,
-          status: "accepted",
-          follower: {
-            followers: {
-              some: {
-                followerId: viewerId,
-                status: "accepted",
-              },
-            },
-          },
-        },
-      });
+      const mutualUserIds = viewerFollowsTargetFollowers.map((vf: any) => vf.followeeId);
+      const mutualProfiles = await ProfileModel.find({ userId: { $in: mutualUserIds } }).lean();
 
-      const mutualAvatarIds = mutualFollows
-        .map((f) => f.follower.avatarAssetId)
-        .filter((id): id is string => Boolean(id));
+      const avatarIds = mutualProfiles.map((p: any) => p.avatarAssetId).filter(Boolean);
+      const avatars = await MediaAssetModel.find({
+        $or: [{ _id: { $in: avatarIds } }, { id: { $in: avatarIds } }],
+      }).lean();
+      const avatarMap = new Map(avatars.map((a: any) => [a._id ? a._id.toString() : a.id, a]));
 
-      const avatarAssets = await prisma.mediaAsset.findMany({
-        where: { id: { in: mutualAvatarIds } },
-      });
-      const avatarMap = new Map(avatarAssets.map((a) => [a.id, a]));
-
-      followedByPreview = {
-        total: totalMutuals,
-        users: mutualFollows.map((f) =>
-          serializeUserSummary(
-            f.follower,
-            f.follower.avatarAssetId ? avatarMap.get(f.follower.avatarAssetId) : null
-          )
-        ),
-      };
+      followedByPreviewUsers = mutualProfiles.map((p: any) =>
+        serializeUserSummary(p, p.avatarAssetId ? avatarMap.get(p.avatarAssetId) : null)
+      );
     }
 
-    // Story Highlights
-    const highlightCoverIds = profile.highlights
-      .map((h) => h.coverAssetId)
-      .filter((id): id is string => Boolean(id));
-    const highlightCovers = await prisma.mediaAsset.findMany({
-      where: { id: { in: highlightCoverIds } },
-    });
-    const coverMap = new Map(highlightCovers.map((c) => [c.id, c]));
+    // Highlights
+    const highlights = await HighlightModel.find({ ownerId: targetUserId })
+      .sort({ position: 1 })
+      .lean();
 
-    const highlights = profile.highlights.map((h) => ({
-      id: h.id,
+    const highlightCoverIds = highlights.map((h: any) => h.coverAssetId).filter(Boolean);
+    const highlightCovers = await MediaAssetModel.find({
+      $or: [{ _id: { $in: highlightCoverIds } }, { id: { $in: highlightCoverIds } }],
+    }).lean();
+    const highlightCoverMap = new Map(highlightCovers.map((c: any) => [c._id ? c._id.toString() : c.id, c]));
+
+    const serializedHighlights = highlights.map((h: any) => ({
+      id: h._id.toString(),
       title: h.title,
       emoji: h.emoji || undefined,
-      cover: h.coverAssetId ? serializeMediaAsset(coverMap.get(h.coverAssetId)) : null,
+      cover: h.coverAssetId ? serializeMediaAsset(highlightCoverMap.get(h.coverAssetId)) : null,
     }));
 
-    // Evaluated streak with calendar date break detection
-    const evaluatedStreak = await getUserStreak(targetUserId);
-
-    // Badges row
-    const badges: { kind: "ministry" | "academic" | "streak" | "role"; label: string }[] = [];
-    if (profile.ministryMemberships?.[0]?.ministry) {
-      badges.push({ kind: "ministry", label: profile.ministryMemberships[0].ministry.name });
-    }
-    const acadLabel = getAcademicLabel(profile.department, profile.studyYear);
-    if (acadLabel) {
-      badges.push({ kind: "academic", label: acadLabel });
-    }
-    if (evaluatedStreak.currentStreak > 0) {
-      badges.push({ kind: "streak", label: `${evaluatedStreak.currentStreak}d Streak` });
-    }
-    if (profile.fellowshipRole) {
-      badges.push({ kind: "role", label: profile.fellowshipRole });
-    }
+    // Streaks
+    const streakResult = await getUserStreak(targetUserId);
 
     const detail: ProfileDetail = {
       ...serializeUserSummary(profile, avatarAsset),
       cover: serializeMediaAsset(coverAsset),
-      bio: profile.bio,
-      location: profile.location,
-      joinedAt: profile.createdAt.toISOString(),
-      links: profile.links.map((l) => ({ kind: l.kind, handle: l.handle || undefined, url: l.url })),
+      bio: (profile as any).bio || null,
+      location: (profile as any).location || null,
+      joinedAt: (profile as any).createdAt ? new Date((profile as any).createdAt).toISOString() : new Date().toISOString(),
+      links: (profile as any).links || [],
       academic: {
-        department: profile.department || undefined,
-        studyYear: profile.studyYear || undefined,
-        label: acadLabel,
+        department: (profile as any).department || undefined,
+        studyYear: (profile as any).studyYear || undefined,
+        label: getAcademicLabel((profile as any).department, (profile as any).studyYear),
       },
-      badges,
-      streak: evaluatedStreak.currentStreak > 0 ? { current: evaluatedStreak.currentStreak } : null,
+      badges: [
+        { kind: "ministry", label: (profile as any).fellowshipRole || "Fellowship Member" },
+        { kind: "academic", label: getAcademicLabel((profile as any).department, (profile as any).studyYear) || "AAU Student" },
+        { kind: "streak", label: `${streakResult.currentStreak}d Streak` },
+      ],
+      streak: { current: streakResult.currentStreak },
       counts: {
-        following: profile.followingCount,
-        connects: profile.followersCount,
-        reflections: profile.postsCount,
+        following: (profile as any).followingCount || 0,
+        connects: (profile as any).followersCount || 0,
+        reflections: (profile as any).postsCount || 0,
       },
-      presence: profile.showPresence
-        ? {
-            online: isUserOnline(profile.lastSeenAt, profile.showPresence),
-            lastSeenAt: profile.lastSeenAt?.toISOString() || null,
-          }
-        : null,
+      presence: {
+        online: isUserOnline((profile as any).lastSeenAt, (profile as any).showPresence),
+        lastSeenAt: (profile as any).lastSeenAt ? new Date((profile as any).lastSeenAt).toISOString() : null,
+      },
       viewer: {
         isSelf,
-        following,
-        followedBy,
-        pendingRequest,
-        blocked,
-        blockedBy,
-        muted,
+        following: isFollowing,
+        followedBy: isFollowedBy,
+        pendingRequest: isPendingRequest,
+        blocked: isBlocked,
+        blockedBy: isBlockedBy,
+        muted: isMuted,
       },
-      followedByPreview,
-      highlights,
+      followedByPreview: {
+        total: totalMutuals,
+        users: followedByPreviewUsers,
+      },
+      highlights: serializedHighlights,
     };
 
     return res.json(detail);
@@ -365,98 +328,46 @@ router.get("/profiles/:username/posts", optionalAuth, async (req: AuthRequest, r
   try {
     const rawUsername = routeParam(req.params.username);
     const cleanParam = rawUsername.replace(/^@/, "");
+    const limit = Math.min(Number(req.query.limit) || 20, 50);
     const viewerId = req.user?.sub;
-    const filter = String(req.query.filter || "all");
-    const limit = Math.min(Number(req.query.limit) || 30, 50);
 
-    let profile = null;
-    try {
-      profile = await prisma.profile.findFirst({
-        where: {
-          OR: [
-            { userId: cleanParam },
-            { username: { equals: cleanParam, mode: "insensitive" } },
-          ],
-        },
-      });
-    } catch {
-      // Prisma error fallback
+    let profile = await ProfileModel.findOne({
+      $or: [
+        { userId: cleanParam },
+        { username: new RegExp(`^${cleanParam}$`, "i") },
+      ],
+    }).lean();
+
+    let targetUserId = (profile as any)?.userId;
+    if (!targetUserId) {
+      if (cleanParam === "4kilofellowship") {
+        targetUserId = "4kilofellowship";
+      } else {
+        const u = await UserModel.findById(cleanParam).lean();
+        if (u) targetUserId = (u as any)._id.toString();
+      }
     }
 
-    if (!profile) {
-      // Safe empty items for Mongo/Official profile
-      return res.json({ items: [] });
+    if (!targetUserId) {
+      return res.json({ items: [], nextCursor: null, hasMore: false });
     }
 
-    const posts = await prisma.post.findMany({
-      where: {
-        authorId: profile.userId,
-        kind: { in: ["post", "quote"] },
-        deletedAt: null,
-        ...(filter === "media" ? { media: { some: {} } } : {}),
-      },
-      include: {
-        parent: { include: { author: true } },
-      },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: limit,
-    });
+    const posts = await PostModel.find({
+      authorId: targetUserId,
+      kind: { $in: ["post", "repost", "quote"] },
+      deletedAt: null,
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
 
     const hydrated = await hydratePosts(posts, viewerId);
-    return res.json({ items: hydrated });
-  } catch (err) {
-    next(err);
-  }
-});
 
-// GET /api/v1/profiles/:username/likes
-router.get("/profiles/:username/likes", optionalAuth, async (req: AuthRequest, res: Response, next) => {
-  try {
-    const rawUsername = routeParam(req.params.username);
-    const cleanParam = rawUsername.replace(/^@/, "");
-    const viewerId = req.user?.sub;
-    const limit = Math.min(Number(req.query.limit) || 30, 50);
-
-    let profile = null;
-    try {
-      profile = await prisma.profile.findFirst({
-        where: {
-          OR: [
-            { userId: cleanParam },
-            { username: { equals: cleanParam, mode: "insensitive" } },
-          ],
-        },
-      });
-    } catch {
-      // Prisma error fallback
-    }
-
-    if (!profile) {
-      return res.json({ items: [] });
-    }
-
-    const likes = await prisma.like.findMany({
-      where: {
-        userId: profile.userId,
-        post: {
-          deletedAt: null,
-          kind: { in: ["post", "quote"] },
-        },
-      },
-      include: {
-        post: {
-          include: {
-            parent: { include: { author: true } },
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: limit,
+    return res.json({
+      items: hydrated,
+      nextCursor: null,
+      hasMore: false,
     });
-
-    const rawPosts = likes.map((l) => l.post).filter(Boolean);
-    const hydrated = await hydratePosts(rawPosts, viewerId);
-    return res.json({ items: hydrated });
   } catch (err) {
     next(err);
   }
@@ -466,110 +377,25 @@ router.get("/profiles/:username/likes", optionalAuth, async (req: AuthRequest, r
 router.patch("/me/profile", requireAuth, async (req: AuthRequest, res: Response, next) => {
   try {
     const userId = req.user!.sub;
-    const {
-      displayName,
-      bio,
-      location,
-      department,
-      studyYear,
-      fellowshipRole,
-      showPresence,
-      visibility,
-      avatarAssetId,
-      coverAssetId,
-      links,
-    } = req.body;
+    const { displayName, bio, location, department, studyYear, fellowshipRole, links } = req.body;
 
-    const data: any = {};
-    if (displayName !== undefined) data.displayName = String(displayName).trim().slice(0, 60);
-    if (bio !== undefined) data.bio = String(bio).trim().slice(0, 300);
-    if (location !== undefined) data.location = String(location).trim().slice(0, 80);
-    if (department !== undefined) data.department = String(department).trim();
-    if (studyYear !== undefined) data.studyYear = Number(studyYear);
-    if (fellowshipRole !== undefined) data.fellowshipRole = String(fellowshipRole).trim();
-    if (showPresence !== undefined) data.showPresence = Boolean(showPresence);
-    if (visibility !== undefined && ["public", "followers"].includes(visibility)) {
-      data.visibility = visibility;
-    }
-    if (avatarAssetId !== undefined) data.avatarAssetId = avatarAssetId;
-    if (coverAssetId !== undefined) data.coverAssetId = coverAssetId;
-
-    const updated = await prisma.profile.update({
-      where: { userId },
-      data,
-    });
-
-    // Update links if provided
-    if (Array.isArray(links)) {
-      await prisma.profileLink.deleteMany({ where: { userId } });
-      if (links.length > 0) {
-        await prisma.profileLink.createMany({
-          data: links.map((link: any, index: number) => ({
-            userId,
-            kind: link.kind || "website",
-            handle: link.handle || null,
-            url: link.url || "",
-            position: index,
-          })),
-        });
-      }
-    }
-
-    return res.json({ success: true, profile: updated });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// PUT /api/v1/me/username
-router.put("/me/username", requireAuth, async (req: AuthRequest, res: Response, next) => {
-  try {
-    const userId = req.user!.sub;
-    const { username } = req.body;
-
-    if (!username || typeof username !== "string") {
-      throw AppError.badRequest("Username is required", "INVALID_USERNAME");
-    }
-
-    const cleanUsername = username.trim().toLowerCase();
-    if (!/^[a-z0-9_]{3,20}$/.test(cleanUsername)) {
-      throw AppError.badRequest(
-        "Username must be 3-20 lowercase alphanumeric characters or underscores",
-        "INVALID_USERNAME_FORMAT"
-      );
-    }
-
-    const existing = await prisma.profile.findUnique({
-      where: { username: cleanUsername },
-    });
-
-    if (existing && existing.userId !== userId) {
-      throw AppError.conflict("Username is already taken", "USERNAME_TAKEN");
-    }
-
-    const updated = await prisma.profile.update({
-      where: { userId },
-      data: {
-        username: cleanUsername,
-        usernameChangedAt: new Date(),
+    const profile = await ProfileModel.findOneAndUpdate(
+      { userId },
+      {
+        $set: {
+          ...(displayName !== undefined && { displayName: String(displayName).trim() }),
+          ...(bio !== undefined && { bio: String(bio).trim() }),
+          ...(location !== undefined && { location: String(location).trim() }),
+          ...(department !== undefined && { department: String(department).trim() }),
+          ...(studyYear !== undefined && { studyYear: Number(studyYear) || null }),
+          ...(fellowshipRole !== undefined && { fellowshipRole: String(fellowshipRole).trim() }),
+          ...(Array.isArray(links) && { links }),
+        },
       },
-    });
+      { new: true, upsert: true }
+    ).lean();
 
-    return res.json({ success: true, username: updated.username });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// POST /api/v1/me/presence
-router.post("/me/presence", requireAuth, async (req: AuthRequest, res: Response, next) => {
-  try {
-    const userId = req.user!.sub;
-    await prisma.profile.update({
-      where: { userId },
-      data: { lastSeenAt: new Date() },
-    });
-    return res.json({ success: true });
+    return res.json({ success: true, profile });
   } catch (err) {
     next(err);
   }

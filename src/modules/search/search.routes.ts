@@ -1,9 +1,14 @@
 import { Router, Response } from "express";
 import { optionalAuth } from "../../platform/auth.js";
 import { AuthRequest } from "../../middleware/auth.middleware.js";
-import { prisma } from "../../utils/prisma.js";
 import { serializeUserSummary } from "../../platform/serializer.js";
 import { hydratePosts } from "../posts/post.service.js";
+import {
+  ProfileModel,
+  PostModel,
+  HashtagModel,
+  MediaAssetModel,
+} from "../../models/social.models.js";
 
 const router = Router();
 
@@ -19,76 +24,70 @@ router.get("/search", optionalAuth, async (req: AuthRequest, res: Response, next
     }
 
     const cleanQ = q.startsWith("#") ? q.slice(1) : q;
+    const regex = new RegExp(cleanQ, "i");
 
     const results: any = {};
 
     // Search Users
     if (type === "all" || type === "users") {
-      const users = await prisma.profile.findMany({
-        where: {
-          OR: [
-            { username: { contains: cleanQ, mode: "insensitive" } },
-            { displayName: { contains: cleanQ, mode: "insensitive" } },
-            { department: { contains: cleanQ, mode: "insensitive" } },
-          ],
-        },
-        take: 15,
-      });
+      const users = await ProfileModel.find({
+        $or: [
+          { username: regex },
+          { displayName: regex },
+          { department: regex },
+        ],
+      })
+        .limit(15)
+        .lean();
 
       const avatarIds = users
-        .map((u) => u.avatarAssetId)
+        .map((u: any) => u.avatarAssetId)
         .filter((id): id is string => Boolean(id));
-      const avatars = await prisma.mediaAsset.findMany({ where: { id: { in: avatarIds } } });
-      const avatarMap = new Map(avatars.map((a) => [a.id, a]));
+      const avatars = await MediaAssetModel.find({
+        $or: [{ _id: { $in: avatarIds } }, { id: { $in: avatarIds } }],
+      }).lean();
+      const avatarMap = new Map(avatars.map((a: any) => [a._id ? a._id.toString() : a.id, a]));
 
-      results.users = users.map((u) =>
+      results.users = users.map((u: any) =>
         serializeUserSummary(u, u.avatarAssetId ? avatarMap.get(u.avatarAssetId) : null)
       );
     }
 
     // Search Posts
     if (type === "all" || type === "posts" || type === "media") {
-      const posts = await prisma.post.findMany({
-        where: {
-          ...(type === "media"
-            ? {
-                media: {
-                  some: {},
-                },
-              }
-            : {}),
-          ...(cleanQ
-            ? {
-                body: { contains: cleanQ, mode: "insensitive" },
-              }
-            : {}),
-          deletedAt: null,
-          visibility: "public",
-        },
-        include: {
-          parent: { include: { author: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 15,
-      });
+      const postQuery: any = {
+        deletedAt: null,
+        visibility: "public",
+      };
+
+      if (type === "media") {
+        postQuery["media.0"] = { $exists: true };
+      }
+
+      if (cleanQ) {
+        postQuery.body = regex;
+      }
+
+      const posts = await PostModel.find(postQuery)
+        .sort({ createdAt: -1 })
+        .limit(15)
+        .lean();
 
       results.posts = await hydratePosts(posts, viewerId);
     }
 
     // Search Tags
     if (type === "all" || type === "tags") {
-      const tags = await prisma.hashtag.findMany({
-        where: { tag: { contains: cleanQ.toLowerCase() } },
-        include: {
-          _count: { select: { posts: true } },
-        },
-        take: 15,
-      });
+      const tags = await HashtagModel.find({
+        tag: new RegExp(cleanQ.toLowerCase(), "i"),
+      })
+        .limit(15)
+        .lean();
 
-      results.tags = tags.map((t) => ({
+      results.tags = tags.map((t: any) => ({
         tag: `#${t.tag}`,
         rawTag: t.tag,
-        postsCount: t._count.posts,
+        postsCount: t.postsCount || 0,
       }));
     }
 
@@ -101,23 +100,16 @@ router.get("/search", optionalAuth, async (req: AuthRequest, res: Response, next
 // GET /api/v1/trending/tags
 router.get("/trending/tags", async (req, res: Response, next) => {
   try {
-    const tags = await prisma.hashtag.findMany({
-      include: {
-        _count: { select: { posts: true } },
-      },
-      orderBy: {
-        posts: {
-          _count: "desc",
-        },
-      },
-      take: 10,
-    });
+    const tags = await HashtagModel.find({})
+      .sort({ postsCount: -1 })
+      .limit(10)
+      .lean();
 
-    const items = tags.map((t) => ({
+    const items = tags.map((t: any) => ({
       tag: `#${t.tag}`,
       rawTag: t.tag,
-      postsCount: t._count.posts,
-      count: t._count.posts,
+      postsCount: t.postsCount || 0,
+      count: t.postsCount || 0,
       category: "Fellowship",
     }));
 
@@ -136,28 +128,21 @@ router.get("/search/suggest", async (req, res: Response, next) => {
     }
 
     const cleanQ = q.startsWith("#") ? q.slice(1).toLowerCase() : q.toLowerCase();
+    const regex = new RegExp(cleanQ, "i");
 
     const [users, tags] = await Promise.all([
-      prisma.profile.findMany({
-        where: {
-          OR: [
-            { username: { contains: cleanQ, mode: "insensitive" } },
-            { displayName: { contains: cleanQ, mode: "insensitive" } },
-          ],
-        },
-        take: 5,
-        select: { username: true, displayName: true },
-      }),
-      prisma.hashtag.findMany({
-        where: { tag: { contains: cleanQ } },
-        take: 5,
-        select: { tag: true },
-      }),
+      ProfileModel.find({
+        $or: [{ username: regex }, { displayName: regex }],
+      })
+        .limit(5)
+        .select("username displayName")
+        .lean(),
+      HashtagModel.find({ tag: regex }).limit(5).select("tag").lean(),
     ]);
 
     const suggestions = [
-      ...users.map((u) => ({ type: "user", label: `@${u.username}`, text: u.displayName })),
-      ...tags.map((t) => ({ type: "tag", label: `#${t.tag}`, text: `#${t.tag}` })),
+      ...users.map((u: any) => ({ type: "user", label: `@${u.username}`, text: u.displayName })),
+      ...tags.map((t: any) => ({ type: "tag", label: `#${t.tag}`, text: `#${t.tag}` })),
     ];
 
     return res.json({ suggestions });
