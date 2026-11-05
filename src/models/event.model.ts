@@ -9,6 +9,8 @@ export interface IEvent extends Document {
   buttonText?: string;
   imageUrl: string;
   isDeleted: boolean;
+  isPublished: boolean;
+  autoUnpublished?: boolean;
   registrationLimit?: number | null;
   registrationsCount: number;
   scheduledAt?: Date | null;
@@ -25,6 +27,8 @@ const EventSchema = new Schema<IEvent>(
     buttonText: { type: String, trim: true },
     imageUrl: { type: String, required: true },
     isDeleted: { type: Boolean, default: false },
+    isPublished: { type: Boolean, default: true },
+    autoUnpublished: { type: Boolean, default: false },
     registrationLimit: { type: Number, default: null },
     registrationsCount: { type: Number, default: 0 },
     scheduledAt: { type: Date, default: null },

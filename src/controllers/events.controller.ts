@@ -44,6 +44,16 @@ export class EventsController {
         });
       }
 
+      const registrationLimit =
+        data.registrationLimit ?? data.maxRegistrations ?? undefined;
+      const isOutdated = new Date(data.endDate) < new Date();
+      const isPublished = isOutdated
+        ? false
+        : data.isPublished !== undefined
+        ? Boolean(data.isPublished)
+        : true;
+      const autoUnpublished = isOutdated;
+
       const created = await EventModel.create({
         title: data.title,
         shortDescription: data.shortDescription,
@@ -52,7 +62,9 @@ export class EventsController {
         endDate: new Date(data.endDate),
         buttonText: data.buttonText,
         imageUrl,
-        registrationLimit: data.registrationLimit ?? undefined,
+        isPublished,
+        autoUnpublished,
+        registrationLimit,
         scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : undefined,
       });
 
@@ -68,21 +80,60 @@ export class EventsController {
     try {
       const sort = (req.query.sort as string) || "asc";
       const sortOrder = sort === "desc" ? -1 : 1;
+      const scope = req.query.scope as string | undefined;
+      const status = req.query.status as string | undefined;
+      const includeExpired = req.query.includeExpired === "true";
       const viewer = (req as AuthRequest).user;
-      const canViewUnpublished = roleHasPermission(
-        viewer?.role,
-        "events.view",
-        viewer?.permissions,
-      ) && normalizeRole(viewer?.role) !== "member";
+      const canViewUnpublished =
+        viewer &&
+        roleHasPermission(
+          viewer?.role,
+          "events.view",
+          viewer?.permissions,
+        ) &&
+        normalizeRole(viewer?.role) !== "member";
+
+      const now = new Date();
+
+      // Auto-unpublish any events whose endDate has passed
+      await EventModel.updateMany(
+        {
+          isDeleted: { $ne: true },
+          isPublished: { $ne: false },
+          endDate: { $lt: now },
+        },
+        {
+          $set: {
+            isPublished: false,
+            autoUnpublished: true,
+          },
+        },
+      ).catch(() => {});
+
+      const isAdminManagement =
+        Boolean(canViewUnpublished) &&
+        (scope === "admin" || status !== undefined || includeExpired);
 
       const query: any = { isDeleted: { $ne: true } };
 
-      if (!canViewUnpublished) {
+      if (!isAdminManagement) {
+        // Mobile feed and standard consumer view: STRICTLY active, published, non-outdated events
+        query.isPublished = { $ne: false };
+        query.endDate = { $gte: now };
         query.$or = [
           { scheduledAt: { $exists: false } },
           { scheduledAt: { $eq: null } },
-          { scheduledAt: { $lte: new Date() } },
+          { scheduledAt: { $lte: now } },
         ];
+      } else {
+        if (status === "published") {
+          query.isPublished = { $ne: false };
+          query.endDate = { $gte: now };
+        } else if (status === "unpublished") {
+          query.isPublished = false;
+        } else if (status === "expired") {
+          query.endDate = { $lt: now };
+        }
       }
 
       const events = await EventModel.find(query)
@@ -101,7 +152,7 @@ export class EventsController {
     try {
       const id = routeParam(req.params.id);
       const event = await EventModel.findById(id).lean();
-      if (!event) {
+      if (!event || event.isDeleted) {
         return res
           .status(404)
           .json({ success: false, message: "Event not found" });
@@ -109,15 +160,38 @@ export class EventsController {
       const viewer = (req as AuthRequest).user;
       const isPrivileged =
         viewer &&
-        ["super_admin", "leader"].includes(normalizeRole(viewer.role));
-      if (
-        !isPrivileged &&
-        event.scheduledAt &&
-        event.scheduledAt > new Date()
-      ) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Event not found" });
+        roleHasPermission(
+          viewer?.role,
+          "events.view",
+          viewer?.permissions,
+        ) &&
+        normalizeRole(viewer?.role) !== "member";
+
+      const now = new Date();
+      if (event.isPublished !== false && new Date(event.endDate) < now) {
+        await EventModel.findByIdAndUpdate(id, {
+          isPublished: false,
+          autoUnpublished: true,
+        }).catch(() => {});
+        event.isPublished = false;
+        event.autoUnpublished = true;
+      }
+
+      if (!isPrivileged) {
+        if (event.isPublished === false || new Date(event.endDate) < now) {
+          return res.status(404).json({
+            success: false,
+            message: "This event has ended or is currently unpublished",
+          });
+        }
+        if (
+          event.scheduledAt &&
+          event.scheduledAt > now
+        ) {
+          return res
+            .status(404)
+            .json({ success: false, message: "Event not found" });
+        }
       }
       return res.status(200).json({ success: true, data: event });
     } catch (error: any) {
@@ -148,8 +222,26 @@ export class EventsController {
         data.imageUrl = result.secure_url;
       }
 
+      if (data.registrationLimit === undefined && data.maxRegistrations !== undefined) {
+        data.registrationLimit = data.maxRegistrations;
+      }
+      delete data.maxRegistrations;
+
+      if (data.isPublished !== undefined) {
+        data.isPublished = Boolean(data.isPublished);
+        if (data.isPublished) {
+          data.autoUnpublished = false;
+        }
+      }
+
       if (data.startDate) data.startDate = new Date(data.startDate);
-      if (data.endDate) data.endDate = new Date(data.endDate);
+      if (data.endDate) {
+        data.endDate = new Date(data.endDate);
+        if (data.endDate < new Date()) {
+          data.isPublished = false;
+          data.autoUnpublished = true;
+        }
+      }
       if (data.scheduledAt) {
         data.scheduledAt = new Date(data.scheduledAt);
       } else if (data.scheduledAt === null) {
@@ -166,6 +258,39 @@ export class EventsController {
       }
 
       return res.status(200).json({ success: true, data: updated });
+    } catch (error: any) {
+      return res
+        .status(500)
+        .json({ success: false, message: error.message || "Server error" });
+    }
+  }
+
+  static async togglePublish(req: Request, res: Response) {
+    try {
+      const id = routeParam(req.params.id);
+      const event = await EventModel.findById(id);
+      if (!event || event.isDeleted) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Event not found" });
+      }
+
+      const nextState =
+        req.body.isPublished !== undefined
+          ? Boolean(req.body.isPublished)
+          : !event.isPublished;
+
+      event.isPublished = nextState;
+      if (nextState) {
+        event.autoUnpublished = false;
+      }
+      await event.save();
+
+      return res.status(200).json({
+        success: true,
+        message: nextState ? "Event published" : "Event unpublished",
+        data: event,
+      });
     } catch (error: any) {
       return res
         .status(500)
@@ -210,10 +335,32 @@ export class EventsController {
       const userId = req.user!.sub;
 
       const event = await EventModel.findById(eventId);
-      if (!event) {
+      if (!event || event.isDeleted) {
         return res.status(404).json({
           success: false,
           message: "Event not found",
+        });
+      }
+
+      const now = new Date();
+
+      if (new Date(event.endDate) < now) {
+        if (event.isPublished) {
+          await EventModel.findByIdAndUpdate(eventId, {
+            isPublished: false,
+            autoUnpublished: true,
+          }).catch(() => {});
+        }
+        return res.status(400).json({
+          success: false,
+          message: "Registration is closed because this event has already ended",
+        });
+      }
+
+      if (event.isPublished === false) {
+        return res.status(400).json({
+          success: false,
+          message: "Registration for this event is closed or event is unpublished",
         });
       }
 
@@ -222,9 +369,15 @@ export class EventsController {
         event.registrationLimit !== undefined &&
         event.registrationsCount >= event.registrationLimit
       ) {
+        if (event.isPublished) {
+          await EventModel.findByIdAndUpdate(eventId, {
+            isPublished: false,
+            autoUnpublished: true,
+          });
+        }
         return res.status(400).json({
           success: false,
-          message: "Event is full",
+          message: "Event registration is full",
         });
       }
 
@@ -242,9 +395,24 @@ export class EventsController {
 
       const registration = await RegistrationModel.create({ userId, eventId });
 
-      await EventModel.findByIdAndUpdate(eventId, {
-        $inc: { registrationsCount: 1 },
-      });
+      const updatedEvent = await EventModel.findByIdAndUpdate(
+        eventId,
+        { $inc: { registrationsCount: 1 } },
+        { new: true },
+      );
+
+      // Auto-unpublish if limit reached!
+      if (
+        updatedEvent &&
+        updatedEvent.registrationLimit !== null &&
+        updatedEvent.registrationLimit !== undefined &&
+        updatedEvent.registrationsCount >= updatedEvent.registrationLimit
+      ) {
+        await EventModel.findByIdAndUpdate(eventId, {
+          isPublished: false,
+          autoUnpublished: true,
+        });
+      }
 
       return res.status(201).json({
         success: true,
@@ -284,9 +452,28 @@ export class EventsController {
         });
       }
 
-      await EventModel.findByIdAndUpdate(eventId, {
-        $inc: { registrationsCount: -1 },
-      });
+      const updatedEvent = await EventModel.findByIdAndUpdate(
+        eventId,
+        { $inc: { registrationsCount: -1 } },
+        { new: true },
+      );
+
+      // If auto-unpublished because limit was reached, and capacity opens up, auto-republish
+      // ONLY IF the event has not already ended!
+      const now = new Date();
+      if (
+        updatedEvent &&
+        updatedEvent.autoUnpublished &&
+        new Date(updatedEvent.endDate) >= now &&
+        updatedEvent.registrationLimit !== null &&
+        updatedEvent.registrationLimit !== undefined &&
+        updatedEvent.registrationsCount < updatedEvent.registrationLimit
+      ) {
+        await EventModel.findByIdAndUpdate(eventId, {
+          isPublished: true,
+          autoUnpublished: false,
+        });
+      }
 
       return res.status(200).json({
         success: true,

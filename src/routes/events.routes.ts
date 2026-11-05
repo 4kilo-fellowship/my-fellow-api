@@ -2,6 +2,7 @@ import { Router } from "express";
 import EventsController from "../controllers/events.controller.js";
 import { uploadSingle, uploadPosterImages } from "../middleware/upload.middleware.js";
 import { requireAuth, requirePermission } from "../middleware/auth.middleware.js";
+import { optionalAuth } from "../platform/auth.js";
 
 const router = Router();
 
@@ -12,8 +13,14 @@ router.post(
   uploadSingle,
   EventsController.createEvent,
 );
-router.get("/", EventsController.getAllEvents);
-router.get("/:id", EventsController.getEventById);
+router.get("/", optionalAuth, EventsController.getAllEvents);
+router.get("/:id", optionalAuth, EventsController.getEventById);
+router.patch(
+  "/:id/publish",
+  requireAuth,
+  requirePermission("events.manage"),
+  EventsController.togglePublish,
+);
 router.put(
   "/:id",
   requireAuth,

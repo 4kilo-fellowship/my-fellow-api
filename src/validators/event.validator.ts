@@ -14,7 +14,9 @@ export const eventBaseSchema = z.object({
   }),
   buttonText: z.string().optional(),
   imageUrl: z.string().url().optional(),
+  isPublished: z.coerce.boolean().optional(),
   registrationLimit: z.coerce.number().nullable().optional(),
+  maxRegistrations: z.coerce.number().nullable().optional(),
   scheduledAt: z
     .string()
     .refine((s) => !Number.isNaN(Date.parse(s)), {
@@ -45,7 +47,9 @@ export const updateEventSchema = z
     endDate: z.string().optional(),
     buttonText: z.string().optional(),
     imageUrl: z.string().url().optional(),
+    isPublished: z.coerce.boolean().optional(),
     registrationLimit: z.coerce.number().nullable().optional(),
+    maxRegistrations: z.coerce.number().nullable().optional(),
     scheduledAt: z
       .string()
       .refine((s) => !Number.isNaN(Date.parse(s)), {
