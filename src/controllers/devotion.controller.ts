@@ -94,6 +94,10 @@ export class DevotionController {
       const created = await DevotionModel.create({
         title: data.title,
         author: data.author,
+        authorId: data.authorId,
+        authorAvatar: data.authorAvatar,
+        authorRole: data.authorRole,
+        authorUsername: data.authorUsername,
         date: data.date,
         type: data.type,
         views: data.views ?? 0,

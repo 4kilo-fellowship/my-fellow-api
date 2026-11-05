@@ -11,6 +11,10 @@ export const createDevotionSchema = z
   .object({
     title: z.string().min(3, "Title must be at least 3 characters"),
     author: z.string().min(2, "Author name must be at least 2 characters"),
+    authorId: z.string().optional(),
+    authorAvatar: z.string().url().optional(),
+    authorRole: z.string().optional(),
+    authorUsername: z.string().optional(),
     date: z.string().min(1, "Date is required"),
     type: devotionTypeEnum,
     image: z.string().url().optional(), // May come via file upload instead
@@ -79,6 +83,10 @@ export const createDevotionSchema = z
 export const updateDevotionSchema = z.object({
   title: z.string().min(3).optional(),
   author: z.string().min(2).optional(),
+  authorId: z.string().optional(),
+  authorAvatar: z.string().url().optional(),
+  authorRole: z.string().optional(),
+  authorUsername: z.string().optional(),
   date: z.string().optional(),
   type: devotionTypeEnum.optional(),
   image: z.string().url().optional(),
