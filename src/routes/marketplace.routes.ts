@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { requireAuth, requirePermission } from "../middleware/auth.middleware.js";
+import {
+  requireAuth,
+  requireMinimumRole,
+} from "../middleware/auth.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
 import { uploadMultiple } from "../middleware/upload.middleware.js";
 import {
@@ -19,7 +22,7 @@ router.get("/products/:id", ProductController.getById);
 router.post(
   "/products",
   requireAuth,
-  requirePermission("finance.view"),
+  requireMinimumRole("leader"),
   uploadMultiple,
   validate(createProductSchema),
   ProductController.create,
@@ -28,7 +31,7 @@ router.post(
 router.put(
   "/products/:id",
   requireAuth,
-  requirePermission("finance.view"),
+  requireMinimumRole("leader"),
   uploadMultiple,
   validate(updateProductSchema),
   ProductController.update,
@@ -37,7 +40,7 @@ router.put(
 router.delete(
   "/products/:id",
   requireAuth,
-  requirePermission("finance.view"),
+  requireMinimumRole("leader"),
   ProductController.remove,
 );
 
@@ -50,14 +53,19 @@ router.post(
 
 router.get("/orders/my", requireAuth, OrderController.getMyOrders);
 
-router.get("/orders", requireAuth, requirePermission("finance.view"), OrderController.getAll);
+router.get(
+  "/orders",
+  requireAuth,
+  requireMinimumRole("leader"),
+  OrderController.getAll,
+);
 
 router.get("/orders/:id", requireAuth, OrderController.getById);
 
 router.patch(
   "/orders/:id/status",
   requireAuth,
-  requirePermission("finance.view"),
+  requireMinimumRole("leader"),
   validate(updateOrderStatusSchema),
   OrderController.updateStatus,
 );
