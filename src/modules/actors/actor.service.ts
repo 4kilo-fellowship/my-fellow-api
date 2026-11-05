@@ -142,8 +142,14 @@ export async function canPostAs(
     return { allowed: true, actor: null };
   }
 
+  const isObjectId = /^[0-9a-fA-F]{24}$/.test(actorIdOrHandle);
   const actor = await ActorModel.findOne({
-    $or: [{ _id: actorIdOrHandle.match(/^[0-9a-fA-F]{24}$/) ? actorIdOrHandle : null }, { handle: actorIdOrHandle }],
+    $or: [
+      ...(isObjectId ? [{ _id: actorIdOrHandle }] : []),
+      { handle: actorIdOrHandle },
+      { teamId: actorIdOrHandle },
+      { displayName: actorIdOrHandle },
+    ],
     deletedAt: null,
   });
 

@@ -1,5 +1,5 @@
 import { serializeMediaAsset, serializeUserSummary } from "../../platform/serializer.js";
-import { PostResponse } from "../../platform/types.js";
+import { PostResponse, UserSummary } from "../../platform/types.js";
 import {
   PostModel,
   LikeModel,
@@ -8,6 +8,7 @@ import {
   MediaAssetModel,
   ActorModel,
 } from "../../models/social.models.js";
+import { UserModel } from "../../models/user.model.js";
 
 export async function hydratePosts(posts: any[], viewerId?: string): Promise<PostResponse[]> {
   if (posts.length === 0) return [];
@@ -46,31 +47,84 @@ export async function hydratePosts(posts: any[], viewerId?: string): Promise<Pos
     $or: [{ _id: { $in: authorAvatarIds } }, { id: { $in: authorAvatarIds } }],
   }).lean();
   const avatarMap = new Map(avatars.map((a: any) => [a._id ? a._id.toString() : a.id, a]));
-  const authorMap = new Map(
+  const authorMap = new Map<string, UserSummary>(
     authors.map((a: any) => [
-      a.userId,
+      String(a.userId),
       serializeUserSummary(a, a.avatarAssetId ? avatarMap.get(a.avatarAssetId) : null),
     ])
   );
 
-  // 2b. Fetch actors for posts created on behalf of teams/official identities
-  const actorIds = posts
-    .map((p) => p.authorActorId)
-    .filter((id): id is string => Boolean(id));
+  // 2b. Fallback to UserModel for any authors missing from ProfileModel
+  const foundUserIds = new Set(authors.map((a: any) => String(a.userId)));
+  const missingAuthorIds = authorIds.map(String).filter((id) => !foundUserIds.has(id));
+
+  if (missingAuthorIds.length > 0) {
+    const validMongoUserIds = missingAuthorIds.filter((id) => /^[0-9a-fA-F]{24}$/.test(id));
+    const users = await UserModel.find({
+      $or: [
+        { _id: { $in: validMongoUserIds } },
+        { phoneNumber: { $in: missingAuthorIds } },
+      ],
+    }).populate("team").lean();
+
+    for (const u of users) {
+      const uId = (u as any)._id.toString();
+      const teamName = (u as any).team?.name || (u as any).team || null;
+      const userSummary: UserSummary = {
+        id: uId,
+        username: (u as any).telegramUserName?.replace(/^@/, "") ||
+          ((u as any).fullName ? (u as any).fullName.toLowerCase().replace(/[^a-z0-9_]/g, "") : "fellow"),
+        displayName: (u as any).fullName || "Fellowship Member",
+        avatar: (u as any).profileImage
+          ? {
+              id: "avatar-" + uId,
+              kind: "image",
+              width: 400,
+              height: 400,
+              urls: {
+                sm: (u as any).profileImage,
+                md: (u as any).profileImage,
+                lg: (u as any).profileImage,
+                original: (u as any).profileImage,
+              },
+            }
+          : null,
+        isVerified: (u as any).role === "super_admin" || (u as any).role === "leader",
+        fellowshipRole: (u as any).role || null,
+        ministryBadge: teamName || (u as any).department || null,
+      };
+
+      authorMap.set(uId, userSummary);
+      if ((u as any).phoneNumber) {
+        authorMap.set((u as any).phoneNumber, userSummary);
+      }
+    }
+  }
+
+  // 2c. Fetch actors for posts created on behalf of teams/official identities
+  const allActorKeys = Array.from(new Set([
+    ...posts.map((p) => (p.authorActorId ? String(p.authorActorId) : null)),
+    ...authorIds.map(String),
+  ])).filter((id): id is string => Boolean(id));
 
   const actorMap = new Map<string, any>();
-  if (actorIds.length > 0) {
-    const validObjectIds = actorIds.filter((id) => /^[0-9a-fA-F]{24}$/.test(id));
+  if (allActorKeys.length > 0) {
+    const validObjectIds = allActorKeys.filter((id) => /^[0-9a-fA-F]{24}$/.test(id));
     const actors = await ActorModel.find({
       $or: [
         { _id: { $in: validObjectIds } },
-        { handle: { $in: actorIds } },
+        { handle: { $in: allActorKeys } },
+        { teamId: { $in: allActorKeys } },
+        { displayName: { $in: allActorKeys } },
       ],
       deletedAt: null,
     }).lean();
     for (const a of actors) {
       actorMap.set((a as any)._id.toString(), a);
       if ((a as any).handle) actorMap.set((a as any).handle, a);
+      if ((a as any).teamId) actorMap.set((a as any).teamId, a);
+      if ((a as any).displayName) actorMap.set((a as any).displayName, a);
+      if ((a as any).userId) actorMap.set(String((a as any).userId), a);
     }
   }
 
@@ -138,16 +192,46 @@ export async function hydratePosts(posts: any[], viewerId?: string): Promise<Pos
 
     for (const t of targets) {
       const tId = t._id ? t._id.toString() : t.id;
+      const tAuthorId = String(t.authorId);
+      const tActor = t.authorActorId ? actorMap.get(String(t.authorActorId)) : actorMap.get(tAuthorId);
+      let tAuthor = targetProfileMap.get(t.authorId) || authorMap.get(tAuthorId);
+      if (tActor) {
+        tAuthor = {
+          id: tActor._id ? tActor._id.toString() : tActor.id,
+          username: tActor.handle,
+          displayName: tActor.displayName,
+          avatar: tActor.avatarUrl
+            ? {
+                id: tActor.handle,
+                kind: "image",
+                width: 400,
+                height: 400,
+                urls: {
+                  sm: tActor.avatarUrl,
+                  md: tActor.avatarUrl,
+                  lg: tActor.avatarUrl,
+                  original: tActor.avatarUrl,
+                },
+              }
+            : null,
+          isVerified: Boolean(tActor.isVerified),
+          fellowshipRole: tActor.type === "official" ? "Official Fellowship" : "Fellowship Team",
+          ministryBadge: tActor.displayName,
+        };
+      } else if (!tAuthor) {
+        tAuthor = {
+          id: tAuthorId,
+          username: "fellow",
+          displayName: "Fellowship Member",
+          avatar: null,
+          isVerified: false,
+        };
+      }
+
       targetPostsMap.set(tId, {
         id: tId,
         kind: t.kind as any,
-        author: targetProfileMap.get(t.authorId) || {
-          id: t.authorId,
-          username: "unknown",
-          displayName: "Unknown Member",
-          avatar: null,
-          isVerified: false,
-        },
+        author: tAuthor,
         body: t.body,
         createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
         editedAt: t.editedAt ? new Date(t.editedAt).toISOString() : null,
@@ -169,11 +253,13 @@ export async function hydratePosts(posts: any[], viewerId?: string): Promise<Pos
 
   return posts.map((p) => {
     const pId = p.id || p._id?.toString();
-    const actor = p.authorActorId ? actorMap.get(p.authorActorId) : null;
-    let author = authorMap.get(p.authorId) || {
-      id: p.authorId,
-      username: "unknown",
-      displayName: "Unknown Member",
+    const pAuthorId = String(p.authorId);
+    const actorKey = p.authorActorId ? String(p.authorActorId) : pAuthorId;
+    const actor = actorMap.get(actorKey) || (p.authorActorId ? actorMap.get(String(p.authorActorId)) : null) || null;
+    let author = authorMap.get(pAuthorId) || {
+      id: pAuthorId,
+      username: "fellow",
+      displayName: "Fellowship Member",
       avatar: null,
       isVerified: false,
     };
