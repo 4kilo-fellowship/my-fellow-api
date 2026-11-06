@@ -89,10 +89,7 @@ export class JamiService {
     }
 
     const customerEmail =
-      params.email?.trim() ||
-      (params.phone
-        ? `${params.phone.replace(/\D/g, "")}@myfellow.et`
-        : `member-${params.userId}@myfellow.et`);
+      params.email?.trim() || "natnaeltamiru98@gmail.com";
 
     const checkout = await this.getClient().createCheckout({
       amount: amountSantim,
@@ -100,7 +97,7 @@ export class JamiService {
       customer: {
         email: customerEmail,
         phone: normalizedPhone,
-        name: params.name,
+        name: params.name || "4 Kilo Fellowship Member",
         externalId: params.userId,
       },
       metadata: {

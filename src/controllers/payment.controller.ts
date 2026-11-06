@@ -34,15 +34,14 @@ export class PaymentController {
       const tx_ref = `fellow-jami-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
       const resolvedEmail =
         email?.trim() ||
-        (user.phoneNumber
-          ? `${user.phoneNumber.replace(/\D/g, "")}@myfellow.et`
-          : `donor-${userId}@myfellow.et`);
+        (user as any)?.email?.trim() ||
+        "natnaeltamiru98@gmail.com";
 
       const checkout = await jamiService.initializeCheckout({
         amount,
         email: resolvedEmail,
         phone: phone || user.phoneNumber,
-        name: user.fullName,
+        name: user.fullName || "4 Kilo Fellowship Member",
         reason: reason || "Donation",
         returnUrl: returnUrl || process.env.JAMI_RETURN_URL,
         userId,
@@ -117,6 +116,8 @@ export class PaymentController {
             status: transaction.status,
             tx_ref: transaction.tx_ref,
             sessionId: transaction.sessionId,
+            amount: transaction.amount,
+            reason: transaction.reason,
             orderId: transaction.orderId || null,
             orderStatus: "paid",
             failure: null,
@@ -132,7 +133,7 @@ export class PaymentController {
         const paidSantim = session.amount ?? 0;
         const expectedSantim = Math.round(transaction.amount * 100);
 
-        if (paidSantim !== expectedSantim) {
+        if (session.amount && paidSantim !== expectedSantim) {
           transaction.status = TransactionStatus.FAILED;
           await transaction.save();
           return res.status(400).json({
@@ -161,6 +162,8 @@ export class PaymentController {
           status: transaction.status,
           tx_ref: transaction.tx_ref,
           sessionId: transaction.sessionId,
+          amount: transaction.amount,
+          reason: transaction.reason,
           orderId: session.orderId,
           orderStatus: session.orderStatus,
           failure: session.failure,

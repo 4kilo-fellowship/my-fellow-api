@@ -33,11 +33,18 @@ test("paymentInitSchema validates giving inputs and enforces bounds", () => {
     });
   });
 
-  // Rejects invalid email
+  // Rejects invalid email if provided
   assert.throws(() => {
     paymentInitSchema.parse({
       amount: 50,
       email: "not-an-email",
     });
   });
+
+  // Accepts payload without email (optional)
+  const withoutEmail = paymentInitSchema.parse({
+    amount: 150,
+  });
+  assert.equal(withoutEmail.amount, 150);
+  assert.equal(withoutEmail.email, undefined);
 });
