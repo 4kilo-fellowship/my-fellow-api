@@ -32,10 +32,15 @@ export class PaymentController {
       }
 
       const tx_ref = `fellow-jami-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+      const resolvedEmail =
+        email?.trim() ||
+        (user.phoneNumber
+          ? `${user.phoneNumber.replace(/\D/g, "")}@myfellow.et`
+          : `donor-${userId}@myfellow.et`);
 
       const checkout = await jamiService.initializeCheckout({
         amount,
-        email,
+        email: resolvedEmail,
         phone: phone || user.phoneNumber,
         name: user.fullName,
         reason: reason || "Donation",

@@ -7,7 +7,7 @@ import {
 
 export interface InitializeCheckoutParams {
   amount: number; // Amount in ETB
-  email: string;
+  email?: string;
   phone?: string;
   name?: string;
   reason?: string;
@@ -88,11 +88,17 @@ export class JamiService {
       successUrl = `${successUrl}${sep}sessionId={CHECKOUT_ID}`;
     }
 
+    const customerEmail =
+      params.email?.trim() ||
+      (params.phone
+        ? `${params.phone.replace(/\D/g, "")}@myfellow.et`
+        : `member-${params.userId}@myfellow.et`);
+
     const checkout = await this.getClient().createCheckout({
       amount: amountSantim,
       description,
       customer: {
-        email: params.email,
+        email: customerEmail,
         phone: normalizedPhone,
         name: params.name,
         externalId: params.userId,
